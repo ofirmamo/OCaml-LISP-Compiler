@@ -184,6 +184,36 @@ let test_string nt str =
   let (e, s) = (nt (string_to_list str)) in
   (e, (Printf.sprintf "->[%s]" (list_to_string s)));;
 
+let make_char_value base_char displacement =
+  let base_char_value = Char.code base_char in
+  fun ch -> (Char.code ch) - base_char_value + displacement;;
+
+let nt_digit_0_9 = pack (range '0' '9') (make_char_value '0' 0);;
+
+let nt_digit_a_f = pack (range 'a' 'f') (make_char_value 'a' 10);;
+
+let nt_digit_A_F = pack (range 'A' 'F') (make_char_value 'A' 10);;
+
+
+let nt_dec_nat =
+  (pack (plus nt_digit_0_9)
+  (fun s -> List.fold_left (fun a b -> a * 10 + b) 0 s));;
+
+let nt_dec_int =
+  pack (caten (maybe(char '-'))
+        nt_dec_nat)
+        (function
+    | (None, n) -> n
+    | (Some _, n) -> -n);;
+
+let nt_hex_nat =
+  pack (caten (word_ci "0x")
+        (pack (plus (disj nt_digit_0_9 (disj nt_digit_a_f nt_digit_A_F)))
+        (fun s -> List.fold_left (fun a b -> a * 16 + b) 0 s)))
+        (fun (_prefix, n) -> n);;
+
+let nt_int = disj nt_hex_nat nt_dec_int;;
+
 end;; (* end of struct PC *)
 
 (* end-of-input *)
