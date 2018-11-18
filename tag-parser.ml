@@ -22,8 +22,6 @@ type expr =
   | LambdaOpt of string list * string * expr
   | Applic of expr * (expr list);;
 
-
-
 let rec expr_eq e1 e2 =
   match e1, e2 with
   | Const Void, Const Void -> true
