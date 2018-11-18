@@ -57,6 +57,14 @@ end;; (* signature TAG_PARSER *)
 
 module Tag_Parser : TAG_PARSER = struct
 
+let reserved_word_list =
+  ["and"; "begin"; "cond"; "define"; "else";
+    "if"; "lambda"; "let"; "let*"; "letrec"; "or";
+    "quasiquote"; "quote"; "set!"; "unquote";
+    "unquote-splicing"];;
+
+(* work on the tag parser starts here *)
+
 let lazy_raise = (fun x -> raise X_syntax_error);;
 
 (* Extract pairs into list *)
@@ -71,12 +79,6 @@ let sym_to_string s =
   match s with
     | Symbol word -> word
     | _ -> raise X_syntax_error;;
-
-let reserved_word_list =
-  ["and"; "begin"; "cond"; "define"; "else";
-   "if"; "lambda"; "let"; "let*"; "letrec"; "or";
-   "quasiquote"; "quote"; "set!"; "unquote";
-   "unquote-splicing"];;
    
 (* Finds the index of elemnt in list *)
 let get_index lst elem =
