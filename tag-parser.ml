@@ -165,8 +165,10 @@ let make_if expr1 expr2 expr3 =
   If(expr1, expr2, expr3);;
 
 (* Builds quoted\quasiqouted\unqouted\unqouted-and-spliced forms *)
-let make_quoted word sexpr =
-  Const (Sexpr (Pair (Symbol (word), sexpr)));;
+let make_quoted sexpr =
+  match sexpr with
+    | Pair (x, Nil) -> Const(Sexpr x)
+    | _ -> raise X_syntax_error;;
 
 (* Builds LambdaSimple from given arguments *)
 let make_lambda_simple strlist expr =
@@ -184,6 +186,14 @@ let make_def var expr =
 let make_applic expr exprlist =
   Applic(expr, exprlist);;
 
+(* Builds Or from given arguments *)
+let make_or exprlist =
+  Or (exprlist);;
+
+(* Builds Set expression from given arguments *)
+let make_set expr1 expr2 =
+    Set (expr1, expr2);;
+
 (* Primary tag parser, split expr to atomic or compund *)
 let rec rec_tag_parser sexpr = 
   match (is_atomic_sexpr sexpr) with
@@ -193,7 +203,8 @@ let rec rec_tag_parser sexpr =
 (* Atomic tag parser *)
 and atomic_tagger sexpr =
   match sexpr with
-    | Symbol word -> make_var word
+    | Symbol word when not(is_reverved_word word) -> make_var word
+    | Symbol word -> raise X_syntax_error
     | _ -> make_const sexpr
 
 (* Compund tag parser *)
@@ -203,7 +214,7 @@ and compund_tagger sexpr =
       ((get_tagger resrved) rest)
     | Pair(applic, rest) -> make_applic (rec_tag_parser applic) (pairs_to_list rest rec_tag_parser)
     | _ -> raise X_syntax_error
-    
+
 (* Builds if expr from given sexpr 2 pattaren is available
    1. Pair(expr, Pair(expr, Nil))
    2. Pair(expr, Pair(expr, Pair(expr, Nil))) *)
@@ -244,26 +255,77 @@ and seq_tagger sexpr =
   match sexpr with
     | Nil -> Const Void
     | Pair(hd, Nil) -> rec_tag_parser hd
-    | Pair(hd, tl) -> make_seq sexpr
+    | Pair(hd, tl) when (is_proper_list tl) -> make_seq sexpr
     | _ -> raise X_syntax_error
   
 (* Builds def expressions 3 pattrens is available
   1. Pair(Symbol var, Pair(expr, Nil))  -> Core form
-  2. MIT macro will handle in macro expand, not now.
-  3. Pair(Symbol var, Nil) -> assign Void to var *)
+  2. Pair(Symbol var, Nil) -> assign Void to var
+  3. Pair(Pair(Symbol name, arglist), body) - MIT def the var name is
+    name and we should pass Pair(arglist, body) to lambda_tagger *)
 and def_tagger sexpr = 
   match sexpr with
     | Pair(Symbol var, Pair(exp, Nil)) -> make_def (Var var) (rec_tag_parser exp)
     | Pair(Symbol var, Nil) -> make_def (Var var) (Const Void)
+    | Pair(Pair (Symbol name, arglist), body) -> 
+        make_def (Var name) (lambda_tagger (Pair(arglist, body)))
+    | _ -> raise X_syntax_error
+
+(* Builds or expresion 3 pattren is available
+  1. Nil -> false
+  2. sexpr -> tag_parse sexpr
+  3. Pair(sexpr, rest) -> (tag_parse sexpr) :: or(rest) *)
+and or_tagger sexpr =
+  match sexpr with
+    | Nil -> Const(Sexpr(Bool false))
+    | Pair(sexp, Nil) -> (rec_tag_parser sexp)
+    | Pair(sexp, rest) when (is_proper_list rest)-> 
+        make_or (pairs_to_list sexpr rec_tag_parser)
+    | _ -> raise X_syntax_error
+
+(* Builds set! expression 1 pattren is available
+    1. Pair(Symbol var, expr) - when expr != Nil *)
+and set_bang_tagger sexpr =
+  match sexpr with
+    | Pair(Symbol var, Pair(expr, Nil)) -> make_set (Var var) (rec_tag_parser expr)
+    | _ -> raise X_syntax_error
+
+(* Builds let expressions 1 pattren is available
+  1. Pair(vars, body) -> will convert into applic when the operator is
+                          the lambda applied w*)
+and let_tagger sexpr =
+  let let_vars_handler sexp =
+    match sexp with
+      | Pair (Symbol var, Pair(vali, Nil)) -> var
+      | _ -> raise X_syntax_error in
+  let let_val_handler sexp =
+    match sexp with
+      | Pair(Symbol var, Pair(vali, Nil)) -> rec_tag_parser vali
+      | _ -> raise X_syntax_error in
+  match sexpr with
+    | Pair(vars, body) when not(body = Nil) -> 
+        make_applic (make_lambda_simple (pairs_to_list vars let_vars_handler)
+                      (seq_tagger body))
+                    (pairs_to_list vars let_val_handler)
+    | _ -> raise X_syntax_error
+
+(* Builds and expression with macro expansions we should valid
+    that the incoming expression is proper list *)
+and and_tagger sexpr = 
+  match sexpr with
+    | Nil -> Const(Sexpr(Bool true))
+    | Pair(expr, Nil) -> rec_tag_parser expr
+    | Pair(expr, rest) when (is_proper_list rest) ->
+      make_if (rec_tag_parser expr) (and_tagger rest) (make_const (Bool false)) 
     | _ -> raise X_syntax_error
 
 and get_tagger word =
   let tagger_list = 
-    [(*"and"*) lazy_raise ; (*"begin"*) seq_tagger; (*"cond"*) lazy_raise; 
+    [(*"and"*) and_tagger ; (*"begin"*) seq_tagger; (*"cond"*) lazy_raise; 
      (*"define"*) def_tagger; (*"else"*) lazy_raise; (*"if"*) if_tagger; 
-     (*"lambda"*) lambda_tagger; (*"let"*)lazy_raise; (*"let*"*) lazy_raise; 
-     (*"letrec"*) lazy_raise; (*"or"*) lazy_raise; (*"quasiquote"*) lazy_raise; 
-     (*"quote"*) (make_quoted "quote"); (*"set!"*) lazy_raise; (*"unquote"*) lazy_raise;
+     (*"lambda"*) lambda_tagger; (*"let"*)let_tagger; (*"let*"*) lazy_raise; 
+     (*"letrec"*) lazy_raise; (*"or"*) or_tagger; (*"quasiquote"*) lazy_raise; 
+     (*"quote"*) make_quoted; (*"set!"*) set_bang_tagger; (*"unquote"*) lazy_raise;
      (*"unquote-splicing"*) lazy_raise] in
   get_nth tagger_list (get_index reserved_word_list word)
 
