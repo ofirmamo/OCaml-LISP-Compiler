@@ -319,6 +319,14 @@ and and_tagger sexpr =
       make_if (rec_tag_parser expr) (and_tagger rest) (make_const (Bool false)) 
     | _ -> raise X_syntax_error
 
+(* Builds cond expressions 3 pattren is available
+  1. Pair(Pair(test, Pair(Symbol "=>", Pair(dit, Nil))), rest) -> 
+        Will do: if test then (dit test) else (parse rest)
+  2. Pair(Pair(test, dit), rest) -> 
+        Will do: if test then (seq_tagger dit) else (parse rest) 
+  3. Pair(Pair(Symbol "else", doit), Nil) -> (doit) *)
+
+
 and get_tagger word =
   let tagger_list = 
     [(*"and"*) and_tagger ; (*"begin"*) seq_tagger; (*"cond"*) lazy_raise; 

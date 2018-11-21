@@ -107,15 +107,17 @@ and sexpr_comment_parser chl =
       (fun _ -> Nil)) chl
 
 and _list_ chl =
+    let _pwd_ p = PC.pack (PC.caten (PC.maybe p) _dots_) (fun (_, _) -> []) in
     let _skip_ =  PC.pack (PC.caten _valid_ (PC.caten (PC.star _one_sexpr_) _valid_))
                 (fun (_, (sxpl, _)) -> sxpl) in
     let _nested_skip_ = PC.pack (PC.caten _valid_ (PC.caten (PC.star _one_nested_sexpr_) _valid_))
                 (fun (_, (sxpl, _)) -> sxpl) in
     let _listed_ = PC.caten _lparen_ (PC.caten  _skip_ _rparen_) in
     let _listed_barcket_ = PC.caten _lbparen_ (PC.caten _skip_ _rbparen_) in
-    let _listed_doted_ = PC.caten (PC.disj _lparen_ _lbparen_) (PC.caten _nested_skip_ _dots_) in
+    let _listed_doted_ = PC.caten _lparen_ (PC.caten _nested_skip_ (_pwd_ _rparen_)) in
+    let _listed_bdoted_ = PC.caten _lbparen_ (PC.caten _nested_skip_ (_pwd_ _rbparen_)) in
 
-    (PC.pack (PC.disj_list [_listed_ ; _listed_barcket_ ; _listed_doted_])
+    (PC.pack (PC.disj_list [_listed_bdoted_;_listed_doted_; _listed_ ; _listed_barcket_])
       (fun (lp ,(sxprl , rp)) -> 
         List.fold_right (fun elem acc -> Pair (elem, acc)) sxprl Nil)) chl
 
@@ -199,16 +201,17 @@ and _nested_vector_ chl =
 
 
 and _dotedlist_ chl = 
+  let _pwd_ p = PC.pack (PC.caten (PC.maybe p) _dots_) (fun (_, _) -> []) in
   let _parend_ = PC.caten _lparen_ (PC.caten (PC.plus  _one_sexpr_)
                            (PC.caten _dot_ (PC.caten _one_sexpr_  _rparen_) ) ) in 
 
   let _parend_barcket_ = PC.caten _lbparen_ (PC.caten (PC.plus  _one_sexpr_)
                           (PC.caten _dot_ (PC.caten _one_sexpr_  _rbparen_) ) ) in 
 
-  let _parend_3dot_ = PC.caten (PC.disj _lparen_  _lbparen_)  (PC.caten ( PC.plus _one_nested_sexpr_)   
-                           (PC.caten _dot_ ( PC.caten _one_nested_sexpr_ _dots_) ) )in 
+  let _parend_3dot_ = PC.caten _lparen_  (PC.caten ( PC.plus _one_nested_sexpr_)   
+                           (PC.caten _dot_ ( PC.caten _one_nested_sexpr_ (_pwd_ _rparen_)) ) )in 
 
-  (PC.pack (PC.disj_list [_parend_ ; _parend_barcket_; _parend_3dot_])
+  (PC.pack (PC.disj_list [_parend_3dot_;_parend_ ; _parend_barcket_])
     (fun (lp, (sxprl, (dot, (sexpr , rp)))) -> 
       List.fold_right (fun elem acc -> Pair (elem , acc)) sxprl sexpr)) chl
 
