@@ -107,7 +107,7 @@ and sexpr_comment_parser chl =
       (fun _ -> Nil)) chl
 
 and _list_ chl =
-    let _pwd_ p = PC.pack (PC.caten (PC.maybe p) _dots_) (fun (_, _) -> []) in
+let _pwd_ p = PC.pack (PC.caten (PC.maybe p) (PC.caten _valid_ _dots_)) (fun (_, (_, _)) -> []) in
     let _skip_ =  PC.pack (PC.caten _valid_ (PC.caten (PC.star _one_sexpr_) _valid_))
                 (fun (_, (sxpl, _)) -> sxpl) in
     let _nested_skip_ = PC.pack (PC.caten _valid_ (PC.caten (PC.star _one_nested_sexpr_) _valid_))
@@ -201,7 +201,7 @@ and _nested_vector_ chl =
 
 
 and _dotedlist_ chl = 
-  let _pwd_ p = PC.pack (PC.caten (PC.maybe p) _dots_) (fun (_, _) -> []) in
+  let _pwd_ p = PC.pack (PC.caten (PC.maybe p) (PC.caten _valid_ _dots_)) (fun (_, (_, _)) -> []) in
   let _parend_ = PC.caten _lparen_ (PC.caten (PC.plus  _one_sexpr_)
                            (PC.caten _dot_ (PC.caten _one_sexpr_  _rparen_) ) ) in 
 
