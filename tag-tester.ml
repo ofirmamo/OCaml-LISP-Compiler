@@ -272,3 +272,124 @@ assert ((Tag_Parser.tag_parse_expression
 assert ((Tag_Parser.tag_parse_expression 
     (Reader.read_sexpr "(define (car . (lst . x)) (car lst))")) 
       =  Def (Var "car", LambdaOpt(["lst"],"x", Applic(Var "car", [Var "lst"]) )));;
+
+(* Let Star tests *)
+try assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "(let*)")) 
+  = (Const Void)) with X_syntax_error -> ();;
+try assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "(let* ())")) 
+  = (Const Void)) with X_syntax_error -> ();;
+try assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "(let* () . 1)")) 
+  = (Const Void)) with X_syntax_error -> ();; 
+try assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "(let* ((x . 1))  1)")) 
+  = (Const Void)) with X_syntax_error -> ();;
+try assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "(let* ((x 1))  )")) 
+  = (Const Void)) with X_syntax_error -> ();;
+try assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "(let* ((x 1) (y x))  )")) 
+  = (Const Void)) with X_syntax_error -> ();;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "(let*\n\t()\n\t\t1)")) 
+  =  Applic (LambdaSimple([], Const(Sexpr(Number(Int 1)))), []));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "(let* ((x 1) (y x)) (+ x y))")) 
+  =  Applic (LambdaSimple(["x"], 
+      Applic(LambdaSimple(["y"], Applic(Var "+", [Var "x"; Var "y"])), [Var "x"] )), 
+        [Const(Sexpr(Number(Int 1)))]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "(let*\n\t()\n\t\t1 + 'moshe)")) 
+  =  Applic (LambdaSimple([], 
+      Seq [Const(Sexpr(Number(Int 1))); Var "+"; Const(Sexpr(Symbol "moshe"))] ), []));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "(let*\n\t((x 1))\n\t\t1 + 'moshe)")) 
+  =  Applic (LambdaSimple(["x"], 
+      Seq [Const(Sexpr(Number(Int 1))); Var "+"; Const(Sexpr(Symbol "moshe"))] ), 
+        [Const(Sexpr(Number(Int 1)))]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "(let*\n\t((x 1) (y x))\n\t\t1 =)")) 
+  =  Applic( LambdaSimple( ["x"], 
+        Applic( (LambdaSimple( ["y"], Seq[Const(Sexpr(Number(Int 1))); Var "="] )), [Var "x"])), 
+      [Const(Sexpr(Number(Int 1)))]) );;
+
+(* QQ tester *)
+try assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`,@1")) 
+  = (Const Void)) with X_syntax_error -> ();;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`1")) 
+  =  Const(Sexpr(Number(Int 1))));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`\"Hello World\"")) 
+  =  Const(Sexpr(String "Hello World")));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`()")) 
+  =  Const(Sexpr(Nil)));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(1)")) 
+  =  Applic(Var "cons", [Const(Sexpr(Number(Int 1))); Const(Sexpr(Nil))]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(1 2)")) 
+  =  Applic( Var "cons", [Const(Sexpr(Number(Int 1))); 
+    Applic( Var "cons", [Const(Sexpr(Number(Int 2))); Const(Sexpr(Nil))] )] ));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(1 . 2.1)")) 
+  =  Applic( Var "cons", [Const(Sexpr(Number(Int 1))); Const(Sexpr(Number(Float 2.1)))] ));;
+  assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(1 . #(2.1))")) 
+  =  Applic( Var "cons", [Const(Sexpr(Number(Int 1))); 
+      Applic((Var "vector"), [Const(Sexpr(Number(Float 2.1)))])] ));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(1 ,(+ 1 2))")) 
+  = Applic( Var "cons", [Const(Sexpr(Number(Int 1)));
+    Applic( Var "cons", 
+    [Applic( Var "+", [Const(Sexpr(Number(Int 1))); Const(Sexpr(Number(Int 2)))]);
+    Const(Sexpr Nil)])]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(1 ,@(+ 1 2))")) 
+  = Applic ((Var "cons"), [
+    Const(Sexpr(Number(Int 1)));
+    Applic((Var "append"), [
+      Applic(Var "+", [Const(Sexpr(Number(Int 1))); Const(Sexpr(Number(Int 2)))]); 
+      Const(Sexpr(Nil))])]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`,x")) 
+  =  Var "x");;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(a b)")) 
+  =  Applic(Var "cons" , [
+    Const(Sexpr(Symbol "a"));
+    Applic(Var "cons", [Const(Sexpr(Symbol "b")); Const(Sexpr(Nil))])]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(,a b)")) 
+  =  Applic ((Var "cons"), [Var "a";
+     Applic((Var "cons"), [Const(Sexpr(Symbol "b")); Const(Sexpr(Nil))])]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(a ,b)")) 
+  =  Applic ((Var "cons"), [Const(Sexpr(Symbol "a")) ;
+    Applic((Var "cons"), [Var "b"; Const(Sexpr(Nil))])]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(,@a b)")) 
+  =  Applic((Var "append"), [Var "a"; 
+    Applic(Var "cons", [Const(Sexpr(Symbol "b")); Const(Sexpr(Nil))])]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(a ,@b)")) 
+  =  Applic((Var "cons"), [Const(Sexpr(Symbol "a")); 
+    Applic(Var "append", [Var "b"; Const(Sexpr(Nil))])]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(,a ,@b)")) 
+  =  Applic((Var "cons"), [Var "a"; 
+    Applic(Var "append", [Var "b"; Const(Sexpr(Nil))])]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(,@a ,@b)")) 
+  =  Applic((Var "append"), [Var "a"; 
+      Applic(Var "append", [Var "b"; Const(Sexpr(Nil))])]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(,@a . ,b)")) 
+  =  Applic((Var "append"), [Var "a"; Var "b"]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(,a . 'b)")) 
+  =  Applic((Var "cons"), [Var "a"; Const(Sexpr(Symbol "b"))]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(,a . ,@b)")) 
+  =  Applic((Var "cons"), [Var "a"; Var "b"]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(((,@a)))")) 
+  =  Applic(Var "cons" , [ 
+    Applic(Var "cons", [ Applic(Var "append", [Var "a"; Const(Sexpr(Nil))]);
+    Const(Sexpr(Nil))]); Const(Sexpr(Nil)) ] ));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`#(a ,b c ,d)")) 
+  =  Applic( Var "vector", [
+    Const(Sexpr(Symbol "a")); Var "b"; Const(Sexpr(Symbol "c")); Var "d"]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`#('a ,b 'c ,d)")) 
+  =  Applic( Var "vector", [
+    Const(Sexpr(Symbol "a")); Var "b"; Const(Sexpr(Symbol "c")); Var "d"]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(#t #f #t)")) 
+  =  Applic(Var "cons", [Const(Sexpr(Bool true));Applic(Var "cons", [ 
+      Const(Sexpr(Bool false));Applic(Var "cons", 
+      [Const(Sexpr(Bool true)); Const(Sexpr(Nil))])])]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(#t #f . #t)")) 
+  =  Applic(Var "cons", [Const(Sexpr(Bool true));Applic(Var "cons", [ 
+      Const(Sexpr(Bool false)); Const(Sexpr(Bool true))])]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(#t 'a . #t)")) 
+  =  Applic(Var "cons", [Const(Sexpr(Bool true));Applic(Var "cons", [ 
+      Const(Sexpr(Symbol "a")); Const(Sexpr(Bool true))])]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(#t ,a . #t)")) 
+  =  Applic(Var "cons", [Const(Sexpr(Bool true));Applic(Var "cons", [ 
+      Var "a"; Const(Sexpr(Bool true))])]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(#t ,@a . #t)")) 
+  =  Applic(Var "cons", [Const(Sexpr(Bool true));Applic(Var "append", [ 
+      Var "a"; Const(Sexpr(Bool true))])]));;
+assert ((Tag_Parser.tag_parse_expression (Reader.read_sexpr "`(#t ,@a #t)")) 
+  =  Applic((Var "cons"), [ Const(Sexpr(Bool true)); Applic((Var "append"), [ Var "a";
+    Applic((Var "cons"),[Const(Sexpr(Bool true)); Const(Sexpr(Nil))]) ])]));;
