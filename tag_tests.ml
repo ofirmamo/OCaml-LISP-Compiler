@@ -147,7 +147,7 @@ _assert 16.2 "(and e1 e2 e3 e4)"
        Const (Sexpr (Bool false))));;
 
 (*Let* *)
-_assert 17.0 "(let* () body)" (Applic (LambdaSimple ([], Var "body"), []));;
+ _assert 17.0 "(let* () body)" (Applic (LambdaSimple ([], Var "body"), []));;
 _assert 17.1 "(let* ((e1 v1)) body)" (Applic (LambdaSimple (["e1"], Var "body"), [Var "v1"]));;
 _assert 17.2 "(let* ((e1 v1)(e2 v2)(e3 v3)) body)"
   (Applic (LambdaSimple (["e1"], Applic (LambdaSimple (["e2"], Applic (LambdaSimple (["e3"], Var "body"),
@@ -155,10 +155,10 @@ _assert 17.2 "(let* ((e1 v1)(e2 v2)(e3 v3)) body)"
 
 
 (*MIT define*)
-(* _assert 18.0 "(define (var . arglst) . (body))" (Def (Var "var", LambdaSimple (["arglst"], Applic (Var "body", []))));; *)
+_assert 18.0 "(define (var . arglst) . (body))" (Def (Var "var", LambdaOpt ([],"arglst", Var "body")));; 
 
 
-(* Letrec
+(*; Letrec *)
 _assert 19.0 "(letrec ((f1 e1)(f2 e2)(f3 e3)) body)"
 (Applic
  (LambdaSimple (["f1"; "f2"; "f3"],
@@ -166,11 +166,11 @@ _assert 19.0 "(letrec ((f1 e1)(f2 e2)(f3 e3)) body)"
     [Set (Var "f1", Var "e1"); Set (Var "f2", Var "e2");
      Set (Var "f3", Var "e3"); Var "body"]),
  [Const (Sexpr (Symbol "whatever")); Const (Sexpr (Symbol "whatever"));
-  Const (Sexpr (Symbol "whatever"))]));; *)
+  Const (Sexpr (Symbol "whatever"))]));;
 
 
 (*Quasiquote*)
-_assert 20.0 "`,x" (_tag_string "x");;
+(* _assert 20.0 "`,x" (_tag_string "x");;
 _assertX 20.01 "`,@x";;
 _assert 20.02 "`(a b)" (_tag_string "(cons 'a (cons 'b '()))");;
 _assert 20.03 "`(,a b)" (_tag_string "(cons a (cons 'b '()))");;
@@ -182,7 +182,7 @@ _assert 20.08 "`(,@a ,@b)" (_tag_string "(append a (append b '()))");;
 _assert 20.09 "`(,@a . ,b)" (_tag_string "(append a b)");;
 _assert 20.10 "`(,a . ,@b)" (_tag_string "(cons a b)");;
 _assert 20.11 "`(((,@a)))" (_tag_string "(cons (cons (append a '()) '()) '())");;
-_assert 20.12 "`#(a ,b c ,d)" (_tag_string "(vector 'a b 'c d)");;
+_assert 20.12 "`#(a ,b c ,d)" (_tag_string "(vector 'a b 'c d)");; *)
 (*
 _assert 20.15 "`" (_tag_string "");;
 _assert 20.16 "`" (_tag_string "");;
@@ -190,14 +190,14 @@ _assert 20.16 "`" (_tag_string "");;
 
 
 (*Cond*)
-(* _assert 21.0 "(cond (a => b)(c => d))"
+_assert 21.0 "(cond (a => b)(c => d))"
   (_tag_string
      "(let ((value a)(f (lambda () b)))
         (if value
           ((f) value)
           (let ((value c)(f (lambda () d)))
             (if value
-             ((f) value)))))");;
+             ((f) value)))))");; 
 
 _assert 21.1 "(cond (p1 e1 e2) (p2 e3 e4) (p3 e4 e5))"
   (_tag_string
@@ -208,10 +208,11 @@ _assert 21.1 "(cond (p1 e1 e2) (p2 e3 e4) (p3 e4 e5))"
           (if p3
             (begin e4 e5))))");;
 
-_assert 21.2 "(cond (p1 e1 e2) (p2 e3 e4) (else e5 e6) (BAD BAD BAD))"
+_assert 21.2 "(cond (p1 e1 e2) (p2 e3 e4) (else e5 e6))"
   (_tag_string
      "(if p1
         (begin e1 e2)
         (if p2
           (begin e3 e4)
-          (begin e5 e6)))");; *)
+          (begin e5 e6)))");;
+

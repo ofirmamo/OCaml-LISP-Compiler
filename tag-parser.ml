@@ -141,7 +141,7 @@ let is_unique_symbols sexpr =
     match sexpr with
       | Nil -> true
       | Symbol word -> is_unique word lst
-      | Pair(Symbol word, rest) when (is_unique word lst) = true ->  
+      | Pair(Symbol word, rest) when (is_unique word lst) && not(is_reverved_word word) = true ->  
           is_unique_rec rest (word :: lst)
       | _ -> false in
   is_unique_rec sexpr symbols_list;;
@@ -265,9 +265,9 @@ and seq_tagger sexpr =
     name and we should pass Pair(arglist, body) to lambda_tagger *)
 and def_tagger sexpr = 
   match sexpr with
-    | Pair(Symbol var, Pair(exp, Nil)) -> make_def (Var var) (rec_tag_parser exp)
-    | Pair(Symbol var, Nil) -> make_def (Var var) (Const Void)
-    | Pair(Pair (Symbol name, arglist), body) -> 
+    | Pair(Symbol var, Pair(exp, Nil)) when not( is_reverved_word var) -> make_def (Var var) (rec_tag_parser exp)
+    | Pair(Symbol var, Nil) when not (is_reverved_word var) -> make_def (Var var) (Const Void)
+    | Pair(Pair (Symbol name, arglist), body) when not(is_reverved_word name) -> 
         make_def (Var name) (lambda_tagger (Pair(arglist, body)))
     | _ -> raise X_syntax_error
 
@@ -287,26 +287,47 @@ and or_tagger sexpr =
     1. Pair(Symbol var, expr) - when expr != Nil *)
 and set_bang_tagger sexpr =
   match sexpr with
-    | Pair(Symbol var, Pair(expr, Nil)) -> make_set (Var var) (rec_tag_parser expr)
+    | Pair(Symbol var, Pair(expr, Nil)) when not(is_reverved_word var) -> make_set (Var var) (rec_tag_parser expr)
     | _ -> raise X_syntax_error
 
 (* Builds let expressions 1 pattren is available
   1. Pair(vars, body) -> will convert into applic when the operator is
                           the lambda applied w*)
 and let_tagger sexpr =
-  let let_vars_handler sexp =
-    match sexp with
-      | Pair (Symbol var, Pair(vali, Nil)) -> var
-      | _ -> raise X_syntax_error in
-  let let_val_handler sexp =
-    match sexp with
-      | Pair(Symbol var, Pair(vali, Nil)) -> rec_tag_parser vali
-      | _ -> raise X_syntax_error in
   match sexpr with
     | Pair(vars, body) when not(body = Nil) -> 
-        make_applic (make_lambda_simple (pairs_to_list vars let_vars_handler)
-                      (seq_tagger body))
-                    (pairs_to_list vars let_val_handler)
+        make_applic (make_lambda_simple (pairs_to_list vars to_var) (seq_tagger body))
+                    (pairs_to_list vars to_val)
+    | _ -> raise X_syntax_error
+
+(* Builds let* expressions 3 pattren is available
+  1. Pair(vars, body) -> will convert into applic when the operator is
+                          the lambda applied w*)
+and let_star_tagger sexpr =  
+  match sexpr with
+    | Pair (Nil, body) -> let_tagger sexpr
+    | Pair (Pair(arg,Nil) ,body) ->  let_tagger sexpr
+    | Pair (Pair(arg, args), body) -> 
+        make_applic (make_lambda_simple [(to_var arg)] (let_star_tagger (Pair(args, body)))) [(to_val arg)]
+    | _ -> raise X_syntax_error
+
+
+
+(* Builds letrec expressions 3 pattren is available
+  1. Pair(vars, body) -> will convert into applic when the operator is
+                          the lambda applied w*)
+and letrec_tagger sexpr = 
+  let make_whatever sexp = Const(Sexpr(Symbol "whatever")) in
+  let set sexp =
+    match sexp with
+      | Pair(Symbol name, Pair(vali, Nil)) -> make_set (Var name) (rec_tag_parser vali)
+      | _ -> raise X_syntax_error in
+  match sexpr with
+    | Pair (Nil, body) -> let_tagger sexpr
+    | Pair(args , body) when not(body = Nil)-> 
+        make_applic (make_lambda_simple (pairs_to_list args to_var) 
+        (Seq ((pairs_to_list args set) @ (pairs_to_list body rec_tag_parser)))) 
+        (pairs_to_list args make_whatever)
     | _ -> raise X_syntax_error
 
 (* Builds and expression with macro expansions we should valid
@@ -325,21 +346,44 @@ and and_tagger sexpr =
   2. Pair(Pair(test, dit), rest) -> 
         Will do: if test then (seq_tagger dit) else (parse rest) 
   3. Pair(Pair(Symbol "else", doit), Nil) -> (doit) *)
-
+and cond_tagger sepxr =
+  let f_apply_value = (fun () -> make_applic (make_applic (Var "f") []) [Var "value"]) in
+  let make_arrow test sexp else_clause = make_applic (make_lambda_simple ["value"; "f"] 
+                   (make_if (Var "value") (f_apply_value ()) else_clause)) 
+                  [(rec_tag_parser test); (make_lambda_simple [] (seq_tagger sexp))] in
+  match sepxr with
+    | Pair(Pair(Symbol "else", exp), Nil) when not(exp = Nil) -> seq_tagger exp
+    | Pair (Pair(test, Pair (Symbol "=>" , sexp)),Nil )  -> make_arrow test sexp (Const Void)
+    | Pair(Pair(test, Pair(Symbol "=>", sexp)), rest) -> make_arrow test sexp (cond_tagger rest)
+    | Pair(Pair(test, dit), Nil) ->  make_if (rec_tag_parser test) (seq_tagger dit) (Const Void)
+    | Pair(Pair(test, dit), rest) -> make_if (rec_tag_parser test) (seq_tagger dit) (cond_tagger rest)
+    | _ -> raise X_syntax_error 
 
 and get_tagger word =
   let tagger_list = 
-    [(*"and"*) and_tagger ; (*"begin"*) seq_tagger; (*"cond"*) lazy_raise; 
+    [(*"and"*) and_tagger ; (*"begin"*) seq_tagger; (*"cond"*) cond_tagger; 
      (*"define"*) def_tagger; (*"else"*) lazy_raise; (*"if"*) if_tagger; 
-     (*"lambda"*) lambda_tagger; (*"let"*)let_tagger; (*"let*"*) lazy_raise; 
-     (*"letrec"*) lazy_raise; (*"or"*) or_tagger; (*"quasiquote"*) lazy_raise; 
+     (*"lambda"*) lambda_tagger; (*"let"*)let_tagger; (*"let*"*) let_star_tagger; 
+     (*"letrec"*) letrec_tagger; (*"or"*) or_tagger; (*"quasiquote"*) lazy_raise; 
      (*"quote"*) make_quoted; (*"set!"*) set_bang_tagger; (*"unquote"*) lazy_raise;
      (*"unquote-splicing"*) lazy_raise] in
   get_nth tagger_list (get_index reserved_word_list word)
 
+and to_var sexp =
+  match sexp with
+    | Pair (Symbol var, Pair(vali, Nil)) when not(is_reverved_word var) -> var
+    | _ -> raise X_syntax_error 
+
+and to_val sexp =
+  match sexp with
+    | Pair(Symbol var, Pair(vali, Nil)) -> rec_tag_parser vali
+    | _ -> raise X_syntax_error
+
 (* Builds Seq from given arg *)
 and make_seq sexpr =
-  Seq (pairs_to_list sexpr rec_tag_parser);;
+  if (is_proper_list sexpr)
+  then Seq (pairs_to_list sexpr rec_tag_parser)
+  else raise X_syntax_error;;
 
 let tag_parse_expression sexpr = rec_tag_parser sexpr;;
           
