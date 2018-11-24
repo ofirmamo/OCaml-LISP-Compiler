@@ -170,7 +170,7 @@ _assert 19.0 "(letrec ((f1 e1)(f2 e2)(f3 e3)) body)"
 
 
 (*Quasiquote*)
-(* _assert 20.0 "`,x" (_tag_string "x");;
+_assert 20.0 "`,x" (_tag_string "x");;
 _assertX 20.01 "`,@x";;
 _assert 20.02 "`(a b)" (_tag_string "(cons 'a (cons 'b '()))");;
 _assert 20.03 "`(,a b)" (_tag_string "(cons a (cons 'b '()))");;
@@ -182,12 +182,7 @@ _assert 20.08 "`(,@a ,@b)" (_tag_string "(append a (append b '()))");;
 _assert 20.09 "`(,@a . ,b)" (_tag_string "(append a b)");;
 _assert 20.10 "`(,a . ,@b)" (_tag_string "(cons a b)");;
 _assert 20.11 "`(((,@a)))" (_tag_string "(cons (cons (append a '()) '()) '())");;
-_assert 20.12 "`#(a ,b c ,d)" (_tag_string "(vector 'a b 'c d)");; *)
-(*
-_assert 20.15 "`" (_tag_string "");;
-_assert 20.16 "`" (_tag_string "");;
-  _assert 20.17 "`" (_tag_string "");;*)
-
+_assert 20.12 "`#(a ,b c ,d)" (_tag_string "(vector 'a b 'c d)");; 
 
 (*Cond*)
 _assert 21.0 "(cond (a => b)(c => d))"

@@ -352,19 +352,43 @@ and cond_tagger sepxr =
                    (make_if (Var "value") (f_apply_value ()) else_clause)) 
                   [(rec_tag_parser test); (make_lambda_simple [] (seq_tagger sexp))] in
   match sepxr with
-    | Pair(Pair(Symbol "else", exp), Nil) when not(exp = Nil) -> seq_tagger exp
+    | Pair(Pair(Symbol "else", exp), ignore) when not(exp = Nil) -> seq_tagger exp
     | Pair (Pair(test, Pair (Symbol "=>" , sexp)),Nil )  -> make_arrow test sexp (Const Void)
     | Pair(Pair(test, Pair(Symbol "=>", sexp)), rest) -> make_arrow test sexp (cond_tagger rest)
     | Pair(Pair(test, dit), Nil) ->  make_if (rec_tag_parser test) (seq_tagger dit) (Const Void)
     | Pair(Pair(test, dit), rest) -> make_if (rec_tag_parser test) (seq_tagger dit) (cond_tagger rest)
     | _ -> raise X_syntax_error 
+(* 
+ Pair(Pair(Pair(Symbol "unquote-splicing", Pair(a, Nil)), b),Nil)  ->  
+           make_applic (Var "append") [(quasiquote_tagger a); (quasiquote_tagger b)] *)
+  and traverse_unquote_s car cdr=
+    match car,cdr with
+      |  Pair(Symbol "unquote-splicing", Pair(a ,Nil)), _ -> make_applic (Var "append") 
+          [(rec_tag_parser a); (quasiquote_tagger (Pair(cdr, Nil))) ]
+      |  _ , Pair(Symbol "unquote-splicing", Pair(b ,Nil)) ->
+          make_applic ( Var "cons" ) [  (quasiquote_tagger (Pair(car, Nil))) ; (rec_tag_parser b) ] 
+      |  _ , _ -> make_applic (Var "cons") [ (quasiquote_tagger (Pair(car, Nil))) ; 
+                                            (quasiquote_tagger (Pair (cdr, Nil))) ]
+
+(*  *)
+(* comment *)
+and quasiquote_tagger sexpr = 
+  match sexpr with 
+    | Pair(Pair(Symbol "unquote", Pair(sexp, Nil)), Nil) -> rec_tag_parser sexp
+    | Pair(Pair(Symbol "unquote-splicing", Pair(sexp, Nil)), Nil) -> raise X_syntax_error
+
+    | Pair (Vector sexp , Nil) -> 
+        make_applic (Var "vector") (List.map (fun x -> quasiquote_tagger (Pair(x, Nil))) sexp)
+    | Pair(Pair(car, cdr) , Nil) -> traverse_unquote_s car cdr
+    | Pair (sexp, Nil)-> make_const sexp
+    | _ -> raise X_syntax_error
 
 and get_tagger word =
   let tagger_list = 
     [(*"and"*) and_tagger ; (*"begin"*) seq_tagger; (*"cond"*) cond_tagger; 
      (*"define"*) def_tagger; (*"else"*) lazy_raise; (*"if"*) if_tagger; 
      (*"lambda"*) lambda_tagger; (*"let"*)let_tagger; (*"let*"*) let_star_tagger; 
-     (*"letrec"*) letrec_tagger; (*"or"*) or_tagger; (*"quasiquote"*) lazy_raise; 
+     (*"letrec"*) letrec_tagger; (*"or"*) or_tagger; (*"quasiquote"*) quasiquote_tagger; 
      (*"quote"*) make_quoted; (*"set!"*) set_bang_tagger; (*"unquote"*) lazy_raise;
      (*"unquote-splicing"*) lazy_raise] in
   get_nth tagger_list (get_index reserved_word_list word)
