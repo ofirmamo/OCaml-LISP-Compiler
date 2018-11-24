@@ -212,7 +212,8 @@ and compund_tagger sexpr =
   match sexpr with
     | Pair (Symbol resrved, rest) when (is_reverved_word resrved) = true -> 
       ((get_tagger resrved) rest)
-    | Pair(applic, rest) -> make_applic (rec_tag_parser applic) (pairs_to_list rest rec_tag_parser)
+    | Pair(applic, rest) when (is_proper_list sexpr) -> 
+        make_applic (rec_tag_parser applic) (pairs_to_list rest rec_tag_parser)
     | _ -> raise X_syntax_error
 
 (* Builds if expr from given sexpr 2 pattaren is available
@@ -347,14 +348,22 @@ and and_tagger sexpr =
         Will do: if test then (seq_tagger dit) else (parse rest) 
   3. Pair(Pair(Symbol "else", doit), Nil) -> (doit) *)
 and cond_tagger sepxr =
-  let f_apply_value = (fun () -> make_applic (make_applic (Var "f") []) [Var "value"]) in
+  let f_apply_value rator rands = make_applic (make_applic (Var rator) []) rands in
+  let apply_rest rest = make_applic rest [] in 
   let make_arrow test sexp else_clause = make_applic (make_lambda_simple ["value"; "f"] 
-                   (make_if (Var "value") (f_apply_value ()) else_clause)) 
+                   (make_if (Var "value") (f_apply_value "f" [(Var "value")]) else_clause)) 
                   [(rec_tag_parser test); (make_lambda_simple [] (seq_tagger sexp))] in
+  let make_arrow2 test sexp else_clause = make_applic 
+  (make_lambda_simple ["value"; "f"; "rest"] 
+    (make_if (Var "value") (f_apply_value "f" [(Var "value")]) (apply_rest (Var "rest"))))
+      [(rec_tag_parser test); (make_lambda_simple [] (seq_tagger sexp)); 
+        (make_lambda_simple [] (cond_tagger else_clause))] in
   match sepxr with
     | Pair(Pair(Symbol "else", exp), ignore) when not(exp = Nil) -> seq_tagger exp
-    | Pair (Pair(test, Pair (Symbol "=>" , sexp)),Nil )  -> make_arrow test sexp (Const Void)
-    | Pair(Pair(test, Pair(Symbol "=>", sexp)), rest) -> make_arrow test sexp (cond_tagger rest)
+    | Pair (Pair(test, Pair (Symbol "=>" , sexp)),Nil )  -> 
+        make_arrow test sexp (Const Void)
+    | Pair(Pair(test, Pair(Symbol "=>", sexp)), rest) -> 
+        make_arrow2 test sexp rest
     | Pair(Pair(test, dit), Nil) ->  make_if (rec_tag_parser test) (seq_tagger dit) (Const Void)
     | Pair(Pair(test, dit), rest) -> make_if (rec_tag_parser test) (seq_tagger dit) (cond_tagger rest)
     | _ -> raise X_syntax_error 
@@ -370,7 +379,6 @@ and cond_tagger sepxr =
       |  _ , _ -> make_applic (Var "cons") [ (quasiquote_tagger (Pair(car, Nil))) ; 
                                             (quasiquote_tagger (Pair (cdr, Nil))) ]
 
-(*  *)
 (* comment *)
 and quasiquote_tagger sexpr = 
   match sexpr with 
