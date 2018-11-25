@@ -267,7 +267,6 @@ and seq_tagger sexpr =
 and def_tagger sexpr = 
   match sexpr with
     | Pair(Symbol var, Pair(exp, Nil)) when not( is_reverved_word var) -> make_def (Var var) (rec_tag_parser exp)
-    | Pair(Symbol var, Nil) when not (is_reverved_word var) -> make_def (Var var) (Const Void)
     | Pair(Pair (Symbol name, arglist), body) when not(is_reverved_word name) -> 
         make_def (Var name) (lambda_tagger (Pair(arglist, body)))
     | _ -> raise X_syntax_error
@@ -359,7 +358,7 @@ and cond_tagger sepxr =
       [(rec_tag_parser test); (make_lambda_simple [] (seq_tagger sexp)); 
         (make_lambda_simple [] (cond_tagger else_clause))] in
   match sepxr with
-    | Pair(Pair(Symbol "else", exp), ignore) when not(exp = Nil) -> seq_tagger exp
+    | Pair(Pair(Symbol "else", exp), Nil) when not(exp = Nil) -> seq_tagger exp
     | Pair (Pair(test, Pair (Symbol "=>" , sexp)),Nil )  -> 
         make_arrow test sexp (Const Void)
     | Pair(Pair(test, Pair(Symbol "=>", sexp)), rest) -> 
