@@ -54,8 +54,7 @@ let rec expr'_eq e1 e2 =
 	 (expr'_eq e1 e2) &&
 	   (List.for_all2 expr'_eq args1 args2)
   | _ -> false;;
-	
-                       
+
 exception X_syntax_error;;
 
 module type SEMANTICS = sig
@@ -65,7 +64,46 @@ module type SEMANTICS = sig
   val box_set : expr' -> expr'
 end;;
 
+
 module Semantics : SEMANTICS = struct
+
+let get_index lst elem =
+  let rec find lst elem i = 
+    match lst with
+      | [] -> -1
+      | hd :: _ when hd = elem -> i
+      | hd :: tl -> find tl elem (i + 1) in
+  find lst elem 0;;
+
+let get_param_index s params = Var'(VarParam  s (get_index params s));;
+
+let is_bound s bounds = 
+  List.fold_left (fun acc elem -> (acc || (List.exists (String.equal s) elem) )) false bounds;;
+
+let rec get_bound_index s bounds mj_indx =
+  match bounds with
+    | [] -> raise Not_found
+    | hd :: tl when (List.exists (String.equal s) hd)-> Var'(VarBound(s, mj_indx, (get_index hd s))) 
+    | hd :: tl -> get_bound_index s tl (mj_indx + 1);;     
+
+let annotate_var s params bounds =
+  if List.exists (String.equal  s) params then (get_param_index s params) 
+  else if (is_bound s bounds) then (get_bound_index s bounds 0)
+  else Var'(VarFree s);;
+  
+let rec annotate_rec isnstd params bounds expr =
+  match expr with
+    | Const c -> Const' c
+    | Var v -> annotate_var v params bounds
+    | If (test , th ,el) -> 
+        If' ((annotate_rec isnstd params bounds test) ,(annotate_rec  isnstd params bounds th) , (annotate_rec isnstd params bounds el) )  
+    | Seq(exprlst) -> Seq' (List.map (annotate_rec  isnstd params bounds) exprlst)
+    | Set (vari, vali) -> Set'((annotate_rec isnstd params bounds vari), ( annotate_rec isnstd params bounds vali))
+    | Def(vari, vali) -> Def' ((annotate_rec isnstd params bounds vari), (annotate_rec isnstd params bounds vali))
+    | Or(exprlst) -> Or' ((List.map (annotate_rec isnstd params bounds) exprlst))
+    | Applic (expr, exprlst) -> Applic'((annotate_rec isnstd params bounds expr), (List.map (annotate_rec isnstd params bounds) exprlst))
+    | LambdaSimple(strlst, expr) -> 
+        LambdaSimple' (strlst, (annotate_rec  expr))
 
 let annotate_lexical_addresses e = raise X_not_yet_implemented;;
 
@@ -79,3 +117,10 @@ let run_semantics expr =
        (annotate_lexical_addresses expr));;
   
 end;; (* struct Semantics *)
+
+(* l (a b) 
+    l ()
+      l(c d) -> [[]; [a; b]]
+      a+c+d
+ *)
+
