@@ -124,6 +124,26 @@ let rec annotate_rec params bounds expr =
         LambdaOpt'(strlst, lst,
                   (annotate_rec (strlst @ [lst]) (params :: bounds) expr));;
 
+let rec annotate_tail_rec is_tp exprt =
+  match exprt with
+  | Applic' (expr, exprlst) when is_tp -> ApplicTP'((annotate_tail_rec false expr), (annotate_tail_rec false exprlst))
+  | Applic' (expr ,exprlst) -> Applic'((annotate_tail_rec false expr), (annotate_tail_rec false exprlst))
+  | LambdaSimple' (strlst, body) -> annotate_tail_rec true body 
+  | LambdaOpt' (stlst , str , body) -> annotate_tail_rec true body
+  | Or' (exprlst) when is_tp -> Or'(annotate_tail_lst (exprlst))
+  | Or' (exprlst) -> Or'(List.map (annotate_tail_rec false) exprlst)
+  | Def' (expr1 , expr2) -> Def'((annotate_tail_rec false expr1 ), (annotate_tail_rec false expr2) )
+  | Set' (expr1 , expr2) -> Set'((annotate_tail_rec false expr1 ), (annotate_tail_rec false expr2))
+  | Seq' (exprlst) when is_tp -> Seq'(annotate_tail_lst (exprlst))
+  | Seq' (exprlst) -> Seq'(List.map (annotate_tail_rec false) exprlst)
+  | Var' (expr) -> Var'(expr)
+  | Const' (expr) -> Var'(expr)
+
+
+
+and annotate_tail_lst exprlst = 
+  List.mapi (fun i expr -> if (i = (List.length exprlst - 1 )) then (annotate_tail_rec true expr) else (annotate_tail_rec false expr) )
+
 let annotate_lexical_addresses e = annotate_rec [] [] e;;
 
 let annotate_tail_calls e = raise X_not_yet_implemented;;
@@ -136,4 +156,15 @@ let run_semantics expr =
        (annotate_lexical_addresses expr));;
   
 end;; (* struct Semantics *)
+(*
+ | Const' of constant
+  | Var' of var
+  | Box' of var
+  | BoxGet' of var
+  | BoxSet' of var * expr'
+  | If' of expr' * expr' * expr'
+  | Seq' of expr' list
+  | Set' of expr' * expr'
+  | Def' of expr' * expr'
+*)
 
