@@ -65,6 +65,9 @@ module type SEMANTICS = sig
 end;;
 
 module Semantics : SEMANTICS = struct
+
+let car (first, second) = first;;
+let cdr (first, second) = second;;
   
 (* Returns  index of element within list, -1 if now found *)
 let get_index lst elem =
@@ -152,6 +155,61 @@ and annotate_tail_lst exprlst =
       then (annotate_tail_rec true expr) 
         else (annotate_tail_rec false expr)) exprlst;;
 
+let box_params params body = 
+   List.map params (fun p -> if (should_box p body) 
+                                  then (annotate_box p body) else p)
+
+ 
+let rec annotate_box expr = 
+  match expr with 
+    | Const'(exp) -> expr
+    | Applic'(rator, params) -> 
+       Applic'((annotate_box rator), (List.map annotate_box params))
+    | ApplicTP' (rator, params) ->  
+       ApplicTP'((annotate_box rator), (List.map annotate_box params))
+    | Or'(exprlst) -> Or' (List.map annotate_box exprlst)
+    | If' (test, dit, dif) -> 
+       If'( (annotate_box test), (annotate_box dit), (annotate_box dif) )
+    | Seq' (exprlst) ->  Seq'((List.map annotate_box params))
+    | Def' (expr1 , expr2) -> Def' (expr1 , (annotate_box expr2))
+    | LambdaSimple (params , body)
+    | _ -> raise X_syntax_error
+
+
+and tuple_rw param acc elem  = (((car acc) || (car (is_rw_bound param elem))), ((cdr acc ) || (cdr (is_rw_bound param elem))))) 
+ and not_in param params = List.fold_left (fun acc other -> acc && not(param = other)) params true
+
+and is_rw_bound param exp =
+  match exp with
+    | Const'(_) -> (false, false)
+    | Var'(VarBound(param, _ ,_ )) -> (true, false)
+    | Set'(Var'(VarBound(param, _, _)), expr) -> ((car (is_rw_bound param exp)), true)
+    | Set' (_, expr) -> is_rw param expr
+    | Applic'(rator, params) -> List.fold_left (tuple_rw param) ([rator]::params)   
+    | ApplicTP(rator, params) ->  List.fold_left (tuple_rw param) ([rator]::params)   
+    | Or'(exprlst)-> List.fold_left (tuple_rw param) exprlst
+    | If'(test, dit, dif)-> ( ( car(is_rw_bound param test) || (car (is_rw_bound param dit))  || (car (is_rw_bound param dif))) , 
+      ( cdr(is_rw param test) || (cdr (is_rw_bound param dit))  || (cdr (is_rw_bound param dif))) )
+    | Seq'(exprlst) -> List.fold_left (tuple_rw param) exprlst
+    | LambdaSimple (params, body) when not_in param params -> is_rw_bound param body
+    | 
+
+
+
+and should_box p body =
+  match body with 
+    | Const'(exp) -> false
+    | Applic' (rator , params) ->  
+
+
+    
+
+(*     (acc , some )->( croscheck (has_rw p some) acc_tuple  )
+ *)
+(* body(VarParam(get/set) (VarBound set/get i,jconst) ) -> should_box
+
+body ((body (lambda set VarBound) , (lambda ....(get VarBound))....) -> should_box *)
+
 let annotate_lexical_addresses e = annotate_rec [] [] e;;
 
 let annotate_tail_calls e = annotate_tail_rec false e;;
@@ -164,4 +222,27 @@ let run_semantics expr =
        (annotate_lexical_addresses expr));;
   
 end;; (* struct Semantics *)
+
+
+(*   | Const' of constant
+  | Var' of var
+  | Box' of var
+  | BoxGet' of var
+  | BoxSet' of var * expr'
+  | If' of expr' * expr' * expr'
+  | Seq' of expr' list
+  | Set' of expr' * expr'
+  | Def' of expr' * expr'
+  | Or' of expr' list
+  | LambdaSimple' of string list * expr'
+  | LambdaOpt' of string list * string * expr'
+  | Applic' of expr' * (expr' list)
+  | ApplicTP' of expr' * (expr' list);; *)
+
+(*  | LambdaSimple' (strlst , body) -> 
+      LambdaSimple' (strlst , (box_params strlst , body))
+  | LambdaOpt(strlst , str, body) ->  *)
+
+
+
 
