@@ -78,6 +78,15 @@ let get_index lst elem =
       | hd :: tl -> find tl elem (i + 1) in
   find lst elem 0;;
 
+(* Finds the index of elemnt in list *)
+let get_index lst elem =
+  let rec find lst elem i = 
+    match lst with
+      | [] -> -1
+      | hd :: _ when hd = elem -> i
+      | hd :: tl -> find tl elem (i + 1) in
+  find lst elem 0;;
+
 (* Returns index of param within params list, assuning element exist! *)
 let get_param_index s params = Var'(VarParam  (s, (get_index params s)));;
 
@@ -154,67 +163,142 @@ and annotate_tail_lst exprlst =
     (fun i expr -> if (i = (List.length exprlst - 1 )) 
       then (annotate_tail_rec true expr) 
         else (annotate_tail_rec false expr)) exprlst;;
-
-let box_params params body = 
-   List.map params (fun p -> if (should_box p body) 
-                                  then (annotate_box p body) else p)
-
  
 let rec annotate_box expr = 
   match expr with 
-    | Const'(exp) -> expr
-    | Applic'(rator, params) -> 
-       Applic'((annotate_box rator), (List.map annotate_box params))
-    | ApplicTP' (rator, params) ->  
-       ApplicTP'((annotate_box rator), (List.map annotate_box params))
-    | Or'(exprlst) -> Or' (List.map annotate_box exprlst)
-    | If' (test, dit, dif) -> 
-       If'( (annotate_box test), (annotate_box dit), (annotate_box dif) )
-    | Seq' (exprlst) ->  Seq'((List.map annotate_box params))
-    | Def' (expr1 , expr2) -> Def' (expr1 , (annotate_box expr2))
-    | LambdaSimple (params , body)
-    | _ -> raise X_syntax_error
+    | BoxSet'(vari, vali) -> BoxSet'(vari, (annotate_box vali))
+    | Set'(vari, vali) -> Set'((annotate_box vari), (annotate_box vali))
+    | If'(test, dit, dif) ->
+        If'((annotate_box test), (annotate_box dit), (annotate_box dif)) 
+    | Seq'(lst) -> Seq'((List.map annotate_box lst))
+    | Def'(vari, vali) -> Def' ((annotate_box vari), (annotate_box vali))
+    | Or'(lst) -> Or'((List.map annotate_box lst))
+    | LambdaSimple'(params, body) -> LambdaSimple'(params, annotate_box((box_process body params)))
+    | LambdaOpt'(params, lst, body) -> LambdaOpt'(params, lst, annotate_box ((box_process body (params @ [lst]))))
+    | Applic'(rator, rands) -> Applic'((annotate_box  rator), (List.map annotate_box rands))
+    | ApplicTP'(rator, rands) -> ApplicTP'((annotate_box  rator), (List.map annotate_box rands))
+    | _ -> expr
 
+and box_process body params =
+  let to_box = get_params_to_box body params in
+  let body_prefix = 
+    List.map (fun n -> Set'(Var'(VarParam(n, (get_index params n))), 
+    Box'(VarParam(n, (get_index params n))))) to_box in
+  match to_box, body with
+    | [], _ -> body
+    | _, Seq'(x) -> Seq'(body_prefix @ (List.map (do_box to_box) x))
+    | _, _ -> Seq'(body_prefix @ [(do_box to_box body)])
+  
+and get_params_to_box body params =
+    let to_box = 
+      collect_params_to_box body (List.map (fun n -> (n, false, false, false, false, true, false)) params) in
+    List.filter (fun n -> is_var_should_box to_box n) params
 
-and tuple_rw param acc elem  = (((car acc) || (car (is_rw_bound param elem))), ((cdr acc ) || (cdr (is_rw_bound param elem))))) 
- and not_in param params = List.fold_left (fun acc other -> acc && not(param = other)) params true
+and setRP (n, rp, wp, rb, wb, acc, ans) = (n, true, wp, rb, wb, acc, wb)
+and setWP (n, rp, wp, rb, wb, acc, ans) = (n, rp, true, rb, wb, acc, rb)
+and setRB (n, rp, wp, rb, wb, acc, ans) = (n, rp, wp, true, wb, acc, wp)
+and setWB (n, rp, wp, rb, wb, acc, ans) = (n, rp, wp, rb, true, acc, rp)
+and setACC (n, rp, wp, rb, wb, acc, ans) = (n, rp, wp, rb, wb, false, ans)
+and setTACC vali (n, rp, wp, rb, wb, acc, ans) = (n, rp, wp, rb, wb, vali, ans)
+and getRP (n, rp, wp, rb, wb, acc, ans) = rp
+and getWP (n, rp, wp, rb, wb, acc, ans) = wp
+and getRB (n, rp, wp, rb, wb, acc, ans) = rb
+and getWB (n, rp, wp, rb, wb, acc, ans) = wb
+and getACC (n, rp, wp, rb, wb, acc, ans) = acc
+and getANS (n, rp, wp, rb, wb, acc, ans) = ans
+and getNAME (n, rp, wp, rb, wb, acc, ans) = n
+and is_name_equal (n, rp, wp, rb, wb, acc, ans) name = (name = n)
+and is_var_avail obj name =
+  List.exists (fun (n, rp, wp, rb, wb, acc, ans) -> (n = name) && acc) obj
+and is_var_should_box obj name =
+  List.exists (fun (n, rp, wp, rb, wb, acc, ans) -> (n = name) && ans) obj
+and set_var obj n f = 
+  List.map (fun obji -> if (is_name_equal obji n) then (f obji) else obji) obj
+and disable_unavail_vars new_params obj =
+      List.map (fun obji -> if (is_name_exists (getNAME obji) new_params) 
+                  then (setACC obji) else obji) obj
+and is_name_exists name lst = List.exists (fun n -> n = name) lst
+and printT (n, rp, wp, rb, wb, acc, ans) = Printf.printf "\t-n:%s rp:%B wp:%B rb:%B wb:%B acc:%B ans:%B\n" n rp wp rb wb acc ans
+and p obj = Printf.printf "obj:\n"; List.iter (fun o -> printT o) obj
+and collect_params_to_box expr obj =
+    match expr with 
+      | Var'(VarParam (n, i)) when (is_var_avail obj n) -> set_var obj n setRP
+      | Set'(Var'(VarParam(n, i)), e) when (is_var_avail obj n) -> 
+          collect_params_to_box e (set_var obj n setWP)
+      | BoxSet'(vari, vali) -> collect_params_to_box vali obj
+      | Set'(vari, vali) -> collect_params_to_box vali (collect_params_to_box vari obj)
+      | If'(test, dit, dif) -> 
+          collect_params_to_box dif (collect_params_to_box dit (collect_params_to_box test obj))
+      | Seq'(lst) | Or'(lst) -> 
+          List.fold_left (fun acc e -> (collect_params_to_box e acc)) obj lst
+      | Def'(vari, vali) -> collect_params_to_box vali obj
+      | Applic'(rator, rands) | ApplicTP'(rator, rands) -> 
+          collect_params_to_box rator 
+            (List.fold_left (fun acc e -> (collect_params_to_box e acc)) obj rands)
+      | LambdaSimple'(params, body) -> collect_status body (disable_unavail_vars params obj)
+      | LambdaOpt'(params, vs, body) -> collect_status body (disable_unavail_vars (params @ [vs]) obj)
+      | _ -> obj
 
-and is_rw_bound param exp =
-  match exp with
-    | Const'(_) -> (false, false)
-    | Var'(VarBound(param, _ ,_ )) -> (true, false)
-    | Set'(Var'(VarBound(param, _, _)), expr) -> ((car (is_rw_bound param exp)), true)
-    | Set' (_, expr) -> is_rw param expr
-    | Applic'(rator, params) -> List.fold_left (tuple_rw param) ([rator]::params)   
-    | ApplicTP(rator, params) ->  List.fold_left (tuple_rw param) ([rator]::params)   
-    | Or'(exprlst)-> List.fold_left (tuple_rw param) exprlst
-    | If'(test, dit, dif)-> ( ( car(is_rw_bound param test) || (car (is_rw_bound param dit))  || (car (is_rw_bound param dif))) , 
-      ( cdr(is_rw param test) || (cdr (is_rw_bound param dit))  || (cdr (is_rw_bound param dif))) )
-    | Seq'(exprlst) -> List.fold_left (tuple_rw param) exprlst
-    | LambdaSimple (params, body) when not_in param params -> is_rw_bound param body
-    | 
+and collect_status body obj = 
+  let obj2 = on_body body 
+    (List.map (fun ((n, rp, wp, rb, wb, acc, ans)) -> (n, rp, wp, false, false, acc, ans)) obj) in
+  List.map2 (fun old curr -> 
+    ((getNAME old), (getRP old), (getWP old), ((getRB old) ||(getRB curr)), 
+      ((getWB old) || (getWB curr)), true, 
+        ((getANS curr) || ((getRB old) && (getWB curr)) || ((getWB old) && (getRB curr))))) obj obj2
 
+and on_body body obj = 
+  match body with
+    | Var'(VarBound(n, i, j)) when (is_var_avail obj n) -> set_var obj n setRB
+    | Set'(Var'(VarBound(n, i, j)), e) when (is_var_avail obj n) -> 
+        on_body e (set_var obj n setWB)
+    | Set'(vari, vali) | Def'(vari, vali) -> on_body vali (on_body vari obj)
+    | BoxSet'(vari, vali) -> on_body vali obj
+    | If'(test, dit, dif) -> 
+        on_body dif (resotreACC obj (on_body dit (resotreACC obj (on_body test obj))))
+    | Seq'(lst) | Or'(lst) -> 
+        (resotreACC obj (List.fold_left (fun acc e -> on_body e (resotreACC obj acc)) obj lst))
+    | Applic'(rator, rands) | ApplicTP'(rator, rands) ->
+        on_body rator (resotreACC obj ((List.fold_left (fun acc e -> on_body e (resotreACC obj acc)) obj rands)))
+    | LambdaSimple'(new_params, bdy) -> 
+        on_body bdy (disable_unavail_vars new_params obj)
+    | LambdaOpt'(new_params, vs, bdy) -> 
+        on_body bdy (disable_unavail_vars (new_params @ [vs]) obj)
+    | _ -> obj
 
+and resotreACC old curr = 
+  List.map2 (fun oldi curri -> (setTACC (getACC oldi) curri)) old curr
 
-and should_box p body =
-  match body with 
-    | Const'(exp) -> false
-    | Applic' (rator , params) ->  
-
-
-    
-
-(*     (acc , some )->( croscheck (has_rw p some) acc_tuple  )
- *)
-(* body(VarParam(get/set) (VarBound set/get i,jconst) ) -> should_box
-
-body ((body (lambda set VarBound) , (lambda ....(get VarBound))....) -> should_box *)
+and is_exists lst name = List.exists (fun e -> e = name) lst
+and remove_duplicates l c = List.filter (fun e -> not(is_exists c e)) l
+and do_box params expr = 
+    match expr with 
+      | Var'(VarParam (n, i)) when (is_exists params n) -> BoxGet'(VarParam(n, i))
+      | Var'(VarBound (n, i, j)) when (is_exists params n) -> BoxGet'(VarBound(n, i, j))
+      | Set'(Var'(VarParam(n, i)), expr) when (is_exists params n) -> 
+          BoxSet'(VarParam(n, i), (do_box params expr))
+      | Set'(Var'(VarBound(n, i, j)), expr) when (is_exists params n) -> 
+          BoxSet'(VarBound(n, i, j), (do_box params expr))
+      | Set'(vari, vali) -> Set'((do_box params vari), (do_box params vali))
+      | BoxSet'(vari, vali) -> BoxSet'(vari, (do_box params vali))
+      | If'(test, dit, dif) ->
+          If'((do_box params test), (do_box params dit), (do_box params dif))
+      | Seq'(lst) -> Seq'((List.map (do_box params) lst))
+      | Def'(vari, vali) -> Def'((do_box params vari), (do_box params vali))
+      | Or'(lst) -> Or'(List.map (do_box params) lst)
+      | Applic'(rator, rands) -> Applic'((do_box params rator), (List.map (do_box params) rands))
+      | ApplicTP'(rator, rands) -> ApplicTP'((do_box params rator), (List.map (do_box params) rands))
+      | LambdaSimple'(new_params, body) -> 
+          LambdaSimple'(new_params, (do_box (remove_duplicates params new_params) body))
+      | LambdaOpt'(new_params, vs, body) -> 
+          LambdaOpt'(new_params, vs, (do_box (remove_duplicates (params @ [vs]) new_params) body))
+      | _ -> expr;;
 
 let annotate_lexical_addresses e = annotate_rec [] [] e;;
 
 let annotate_tail_calls e = annotate_tail_rec false e;;
 
-let box_set e = raise X_not_yet_implemented;;
+let box_set e = annotate_box e;;
 
 let run_semantics expr =
   box_set
@@ -222,27 +306,6 @@ let run_semantics expr =
        (annotate_lexical_addresses expr));;
   
 end;; (* struct Semantics *)
-
-
-(*   | Const' of constant
-  | Var' of var
-  | Box' of var
-  | BoxGet' of var
-  | BoxSet' of var * expr'
-  | If' of expr' * expr' * expr'
-  | Seq' of expr' list
-  | Set' of expr' * expr'
-  | Def' of expr' * expr'
-  | Or' of expr' list
-  | LambdaSimple' of string list * expr'
-  | LambdaOpt' of string list * string * expr'
-  | Applic' of expr' * (expr' list)
-  | ApplicTP' of expr' * (expr' list);; *)
-
-(*  | LambdaSimple' (strlst , body) -> 
-      LambdaSimple' (strlst , (box_params strlst , body))
-  | LambdaOpt(strlst , str, body) ->  *)
-
 
 
 
