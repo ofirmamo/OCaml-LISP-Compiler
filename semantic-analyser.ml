@@ -186,7 +186,6 @@ and box_process body params =
     Box'(VarParam(n, (get_index params n))))) to_box in
   match to_box, body with
     | [], _ -> body
-    | _, Seq'(x) -> Seq'(body_prefix @ (List.map (do_box to_box) x))
     | _, _ -> Seq'(body_prefix @ [(do_box to_box body)])
   
 and get_params_to_box body params =
