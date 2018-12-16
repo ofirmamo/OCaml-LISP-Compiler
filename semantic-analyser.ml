@@ -191,12 +191,13 @@ and box_process body params =
 and get_params_to_box body params =
     let to_box = 
       collect_params_to_box body (List.map (fun n -> (n, false, false, false, false, true, false)) params) in
+    (* p to_box; *)
     List.filter (fun n -> is_var_should_box to_box n) params
 
-and setRP (n, rp, wp, rb, wb, acc, ans) = (n, true, wp, rb, wb, acc, wb)
-and setWP (n, rp, wp, rb, wb, acc, ans) = (n, rp, true, rb, wb, acc, rb)
-and setRB (n, rp, wp, rb, wb, acc, ans) = (n, rp, wp, true, wb, acc, wp)
-and setWB (n, rp, wp, rb, wb, acc, ans) = (n, rp, wp, rb, true, acc, rp)
+and setRP (n, rp, wp, rb, wb, acc, ans) = (n, true, wp, rb, wb, acc, wb || ans)
+and setWP (n, rp, wp, rb, wb, acc, ans) = (n, rp, true, rb, wb, acc, rb || ans)
+and setRB (n, rp, wp, rb, wb, acc, ans) = (n, rp, wp, true, wb, acc, wp || ans)
+and setWB (n, rp, wp, rb, wb, acc, ans) = (n, rp, wp, rb, true, acc, rp || ans)
 and setACC (n, rp, wp, rb, wb, acc, ans) = (n, rp, wp, rb, wb, false, ans)
 and setTACC vali (n, rp, wp, rb, wb, acc, ans) = (n, rp, wp, rb, wb, vali, ans)
 and getRP (n, rp, wp, rb, wb, acc, ans) = rp
