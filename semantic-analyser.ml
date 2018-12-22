@@ -268,7 +268,6 @@ and on_body body obj =
 
 and resotreACC old curr = 
   List.map2 (fun oldi curri -> (setTACC (getACC oldi) curri)) old curr
-
 and is_exists lst name = List.exists (fun e -> e = name) lst
 and remove_duplicates l c = List.filter (fun e -> not(is_exists c e)) l
 and do_box params expr = 
@@ -291,7 +290,7 @@ and do_box params expr =
       | LambdaSimple'(new_params, body) -> 
           LambdaSimple'(new_params, (do_box (remove_duplicates params new_params) body))
       | LambdaOpt'(new_params, vs, body) -> 
-          LambdaOpt'(new_params, vs, (do_box (remove_duplicates (params @ [vs]) new_params) body))
+          LambdaOpt'(new_params, vs, (do_box (remove_duplicates params (new_params@[vs])) body))
       | _ -> expr;;
 
 let annotate_lexical_addresses e = annotate_rec [] [] e;;
