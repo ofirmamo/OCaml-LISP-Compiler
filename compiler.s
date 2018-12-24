@@ -169,7 +169,40 @@
 %define MAKE_CLOSURE(r, env, body) \
         MAKE_TWO_WORDS r, T_CLOSURE, env, body
 
-	
+;;; Make literal of type %1 
+;;; followed by the defintion %2
+%macro MAKE_LITERAL 2
+	db %1
+	%2
+%endmacro
+
+;;; Make literal string with length %1
+%macro MAKE_LIT_STRING 2
+	db T_STRING
+	dq %1
+	db %2
+%endmacro
+
+;;; Make literal vector of length %1
+;;; From SOBs
+;;; Variadic macro
+%macro MAKE_LIT_VECTOR 0-*
+	db T_VECTOR
+	dq %0
+%rep %0
+	dq %1
+%rotate 1
+%endrep
+%endmacro
+
+%define MAKE_LIT_NIL db T_NIL
+%define MAKE_LIT_VOID db T_VOID
+%define MAKE_LIT_BOOL(val) MAKE_LITERAL T_BOOL, db val
+%define MAKE_LIT_CHAR(val) MAKE_LITERAL T_CHAR, db val
+%define MAKE_LIT_INT(val) MAKE_LITERAL T_INTEGER, dq val
+%define MAKE_LIT_FLOAT(val) MAKE_LITERAL T_FLOAT, dq val
+%define MAKE_LIT_SYMBOL(ptr) MAKE_LITERAL T_SYMBOL, dq ptr
+
 extern exit, printf, malloc
 global write_sob, write_sob_if_not_void
 
