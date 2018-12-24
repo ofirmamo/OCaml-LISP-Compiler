@@ -1,11 +1,15 @@
 #use "semantic-analyser.ml";;
 
 exception X_const_tbl
+exception X_get_ext_const
+exception X_get_fvar_address
 
 module type CODE_GEN = sig
   val make_consts_tbl : expr' list -> (constant * int * string) list
   val make_fvars_tbl : expr' list -> (string * int * string) list
-	val generate : (constant * ('a * string)) list -> (string * 'a) list -> expr' -> string
+	val generate : (constant * int * string) list -> (string * int * string) list -> expr' -> string
+	val get_const_address: constant -> (constant * int * string) list -> string
+	val get_fvar_address: string -> (string * int * string) list -> string
 end;;
 
 module Code_Gen : CODE_GEN = struct
@@ -13,6 +17,7 @@ module Code_Gen : CODE_GEN = struct
 let byte_size = 1;;
 let qw_size = 8;;
 let const_tbl_name = "const_tbl";;
+let fvar_tbl_name = "fvar_tbl";;
 
 let void_size = byte_size;;	(* Only Tag.. *)
 let nil_size = byte_size;; (* Only Tag.. *)
@@ -55,7 +60,11 @@ let rec _make_fvar_tbl_ acc asts=
 		| LambdaSimple' (_ , body) -> _make_fvar_tbl_ acc body
 		| LambdaOpt'(_ ,_ , body) -> _make_fvar_tbl_ acc body
 
-and exsits str acc = List.exists (fun (name,value) -> String.equal str name) acc;;
+and exsits str acc = List.exists (fun (name,value) -> String.equal str name) acc
+and get_fvar_address value fvar_tbl = 
+	let filtred = List.filter (fun (s, _, _) -> String.equal value s) fvar_tbl in
+	if List.length filtred == 1 then fvar_to_addr (List.hd filtred) else raise X_get_fvar_address
+and fvar_to_addr (_, i, _) = "[" ^ fvar_tbl_name ^ " + " ^ string_of_int (i * qw_size) ^ "]";;
 
 let rec collect_unique_const acc expr =
 	match expr with
@@ -128,7 +137,6 @@ let rec _make_consts_tbl_ acc indx lst =
 				^ get_const_address (Sexpr cdr) acc ^ ")"]) (indx + pair_size) tl)
 		| Sexpr(Vector(lst)) :: tl -> (_make_consts_tbl_ (acc @ [ Sexpr(Vector lst) , indx,
 				"MAKE_LIT_VECTOR " ^ (String.concat ", " (List.map (fun sexpr -> get_const_address (Sexpr(sexpr)) acc) lst))  ^ "" ]) (indx + (vec_size lst)) tl)
-		| _ -> raise X_const_tbl
 
 and get_const_address e lst = 
 	"" ^ const_tbl_name ^ " + " ^ string_of_int (get_index(filter_consts lst e)) ^ ""
@@ -138,6 +146,6 @@ and filter_consts lst sexpr =
 
 let make_consts_tbl asts = _make_consts_tbl_ [] 0 (const_tbl asts);;
 let make_fvars_tbl asts  = make_indx_fvar_tbl (List.fold_left _make_fvar_tbl_ prefix_fvar_tbl asts);;
-let generate consts fvars e = raise X_not_yet_implemented;;
+let generate consts fvars e = "";;
 end;;
 

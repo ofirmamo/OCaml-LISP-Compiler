@@ -22,12 +22,12 @@ let primitive_names_to_labels =
 (* you can add yours here *)];;
 
 let make_prologue consts_tbl fvars_tbl =
-  let get_const_address const = raise X_not_yet_implemented in
-  let get_fvar_address const = raise X_not_yet_implemented in
+  let get_const_address const = Code_Gen.get_const_address const consts_tbl in
+  let get_fvar_address const = Code_Gen.get_fvar_address const fvars_tbl in
   let make_primitive_closure (prim, label) =
 "    MAKE_CLOSURE(rax, SOB_NIL_ADDRESS, " ^ label  ^ ")
-    mov [" ^ (get_fvar_address prim)  ^ "], rax" in
-  let make_constant (c, (a, s)) = s in
+    mov " ^ (get_fvar_address prim)  ^ ", rax" in
+  let make_constant (c, a, s) = s in
   
 "
 ;;; All the macros and the scheme-object printing procedure
@@ -52,6 +52,7 @@ const_tbl:
 fvar_tbl:
 " ^ (String.concat "\n" (List.map (fun _ -> "dq T_UNDEFINED") fvars_tbl)) ^ "
 
+global main
 section .text
 main:
     ;; set up the heap
@@ -80,10 +81,9 @@ code_fragment:
     ;; This is where we emulate the missing (define ...) expressions
     ;; for all the primitive procedures.
 " ^ (String.concat "\n" (List.map make_primitive_closure primitive_names_to_labels)) ^ "
- 
 ";;
 
-let epilogue = raise X_not_yet_implemented;;
+let epilogue = "";;
 
 exception X_missing_input_file;;
 
@@ -96,7 +96,7 @@ try
   let generate = Code_Gen.generate consts_tbl fvars_tbl in
   let code_fragment = String.concat "\n\n"
                         (List.map
-                           (fun ast -> (generate ast) ^ "\n    call write_sob_if_not_void")
+                           (fun ast -> (generate ast) ^ "\n\tcall write_sob_if_not_void\n\tret\n\n;;; prims.s!\n")
                            asts) in
   let provided_primitives = file_to_string "prims.s" in
                    
