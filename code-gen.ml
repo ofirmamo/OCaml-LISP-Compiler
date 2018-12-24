@@ -1,5 +1,7 @@
 #use "semantic-analyser.ml";;
 
+exception X_const_tbl
+
 module type CODE_GEN = sig
   val make_consts_tbl : expr' list -> (constant * int * string) list
   val make_fvars_tbl : expr' list -> (string * int * string) list
@@ -124,8 +126,9 @@ let rec _make_consts_tbl_ acc indx lst =
 			(_make_consts_tbl_ (acc @ [Sexpr(Pair(car,cdr)), indx,
 				"MAKE_LITERAL_PAIR(" ^ get_const_address (Sexpr car) acc ^ ", " 
 				^ get_const_address (Sexpr cdr) acc ^ ")"]) (indx + pair_size) tl)
-		| Sexpr(Vector(lst)) :: tl -> (_make_const_tbl_ (acc @ [ ] ) )
-		| _ -> raise X_not_yet_implemented
+		| Sexpr(Vector(lst)) :: tl -> (_make_consts_tbl_ (acc @ [ Sexpr(Vector lst) , indx,
+				"MAKE_LIT_VECTOR " ^ (String.concat ", " (List.map (fun sexpr -> get_const_address (Sexpr(sexpr)) acc) lst))  ^ "" ]) (indx + (vec_size lst)) tl)
+		| _ -> raise X_const_tbl
 
 and get_const_address e lst = 
 	"" ^ const_tbl_name ^ " + " ^ string_of_int (get_index(filter_consts lst e)) ^ ""
