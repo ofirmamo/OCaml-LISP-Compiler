@@ -78,5 +78,8 @@ for file in scm_files:
 			else:
 				print("Oh no, test for {}.scm failed workscpare will not clean for debug...".format(file))
 				sys.exit(1)
+
+print("\nYAY!!")
+sys.exit(0)
 		
  

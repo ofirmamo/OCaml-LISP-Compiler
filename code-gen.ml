@@ -146,15 +146,21 @@ and get_index (_, i, _) = i
 and filter_consts lst sexpr = 
 	List.hd (List.filter (fun (e,_,_) -> expr_eq (Const e) (Const sexpr)) lst);;
 
-let rec genrate_asm consts fvars e = 
+let rec genrate_asm del sub_routine consts fvars e = 
 		match e with
-			| Const'(c) -> catenate_subroutine ("\tmov rax, " ^ get_const_address c consts ^ "\t;;;Const by genrate\n")
+			| Const'(c) -> sub_routine del ("\tmov rax, " ^ get_const_address c consts ^ "\t;;;Const by genrate")
+			| Seq'(lst) -> e_in_seq lst consts fvars
 			| _ -> raise X_genrate
 
-and catenate_subroutine str = "" ^ str ^ "" ^ print_subroutine ^ "";;
+and e_in_seq lst consts fvars = 
+	let to_asm = List.fold_left (fun acc e -> acc @ [(genrate_asm "" not_subroutine consts fvars e)]) [] lst in
+	catenate_subroutine "\n" (String.concat "\n" to_asm) 
+
+and catenate_subroutine str del = del ^ str ^ "" ^ print_subroutine ^ ""
+and not_subroutine del str = str ;;
 
 let make_consts_tbl asts = _make_consts_tbl_ [] 0 (const_tbl asts);;
 let make_fvars_tbl asts  = make_indx_fvar_tbl (List.fold_left _make_fvar_tbl_ prefix_fvar_tbl asts);;
-let generate consts fvars e = genrate_asm consts fvars e;;
+let generate consts fvars e = genrate_asm "\n" catenate_subroutine consts fvars e;;
 end;;
 
