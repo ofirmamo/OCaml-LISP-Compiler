@@ -151,7 +151,7 @@
         MALLOC %1, TYPE_SIZE+WORD_SIZE*2
         mov byte [%1], %2
         mov qword [%1+TYPE_SIZE], %3
-        mov qword [%1+TYPE_SIZE+WORD_BYTES], %4
+        mov qword [%1+TYPE_SIZE+WORD_SIZE], %4
 %endmacro
 
 %macro MAKE_WORDS_LIT 3
@@ -246,7 +246,9 @@ write_sob_float:
 	movq xmm0, rsi
 	mov rdi, .float_format_string
 	mov rax, 1
+	sub rsp, 8
 	call printf
+	add rsp, 8
 
 	leave
 	ret

@@ -3,6 +3,7 @@
 exception X_const_tbl
 exception X_get_ext_const
 exception X_get_fvar_address
+exception X_genrate
 
 module type CODE_GEN = sig
   val make_consts_tbl : expr' list -> (constant * int * string) list
@@ -18,6 +19,7 @@ let byte_size = 1;;
 let qw_size = 8;;
 let const_tbl_name = "const_tbl";;
 let fvar_tbl_name = "fvar_tbl";;
+let print_subroutine = "\tcall write_sob_if_not_void\t;;;Print Sub Routine\n";;
 
 let void_size = byte_size;;	(* Only Tag.. *)
 let nil_size = byte_size;; (* Only Tag.. *)
@@ -144,8 +146,15 @@ and get_index (_, i, _) = i
 and filter_consts lst sexpr = 
 	List.hd (List.filter (fun (e,_,_) -> expr_eq (Const e) (Const sexpr)) lst);;
 
+let rec genrate_asm consts fvars e = 
+		match e with
+			| Const'(c) -> catenate_subroutine ("\tmov rax, " ^ get_const_address c consts ^ "\t;;;Const by genrate\n")
+			| _ -> raise X_genrate
+
+and catenate_subroutine str = "" ^ str ^ "" ^ print_subroutine ^ "";;
+
 let make_consts_tbl asts = _make_consts_tbl_ [] 0 (const_tbl asts);;
 let make_fvars_tbl asts  = make_indx_fvar_tbl (List.fold_left _make_fvar_tbl_ prefix_fvar_tbl asts);;
-let generate consts fvars e = "";;
+let generate consts fvars e = genrate_asm consts fvars e;;
 end;;
 

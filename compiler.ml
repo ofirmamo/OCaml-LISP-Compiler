@@ -81,6 +81,7 @@ code_fragment:
     ;; This is where we emulate the missing (define ...) expressions
     ;; for all the primitive procedures.
 " ^ (String.concat "\n" (List.map make_primitive_closure primitive_names_to_labels)) ^ "
+\n\t;;; Code genrated by genrate from here ;;;
 ";;
 
 let epilogue = "";;
@@ -96,12 +97,12 @@ try
   let generate = Code_Gen.generate consts_tbl fvars_tbl in
   let code_fragment = String.concat "\n\n"
                         (List.map
-                           (fun ast -> (generate ast) ^ "\n\tcall write_sob_if_not_void\n\tret\n\n;;; prims.s!\n")
+                           (fun ast -> (generate ast))
                            asts) in
   let provided_primitives = file_to_string "prims.s" in
                    
   print_string ((make_prologue consts_tbl fvars_tbl)  ^
-                  code_fragment ^
-                    provided_primitives ^ "\n" ^ epilogue)
+                  code_fragment 
+                    ^ "\n\t;;;prims.s\n" ^ provided_primitives ^ "\n" ^ epilogue)
 
 with Invalid_argument(x) -> raise X_missing_input_file;;
