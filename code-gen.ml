@@ -31,6 +31,15 @@ let string_size str = byte_size + qw_size + (String.length str);; (* Tag, Length
 let symbol_size = byte_size + qw_size;; (* One byte for tag and 8 bytes for string ptr *)
 let pair_size = byte_size + (qw_size * 2);; (* One byte for tag and 16 bytes for ptrs *)
 let vec_size vec = byte_size + qw_size + ((List.length vec) * qw_size);;
+let count () =
+	let n = 0 in
+	let rn = ref n in
+	let x() = 
+		rn := !rn+1;
+		!rn in
+		x;;
+let counter = count();;
+
 
 let prefix_fvar_tbl = 
 	["boolean?", "is_boolean"; "float?", "is_float"; "integer?", "is_integer"; "pair?", "is_pair";
@@ -149,12 +158,20 @@ and filter_consts lst sexpr =
 let rec genrate_asm del sub_routine consts fvars e = 
 		match e with
 			| Const'(c) -> sub_routine del ("\tmov rax, " ^ get_const_address c consts ^ "\t;;;Const by genrate")
-			| Seq'(lst) -> e_in_seq lst consts fvars
+			| Seq'(lst) -> e_in_seq lst consts fvars sub_routine
+			| If'(test,dit,dif) -> if_to_asm fvars consts test dit dif sub_routine
 			| _ -> raise X_genrate
 
-and e_in_seq lst consts fvars = 
+and e_in_seq lst consts fvars sub_routine = 
 	let to_asm = List.fold_left (fun acc e -> acc @ [(genrate_asm "" not_subroutine consts fvars e)]) [] lst in
-	catenate_subroutine "\n" (String.concat "\n" to_asm) 
+	sub_routine "\n" (String.concat "\n" to_asm) 
+
+and if_to_asm fvars consts test dit dif sub_routine=  
+	let test_to_asm = genrate_asm "" not_subroutine consts fvars test in
+	let dit_to_asm =  genrate_asm "" not_subroutine consts fvars dit in
+	let dif_to_asm =  genrate_asm "" not_subroutine consts fvars dif in
+	sub_routine "\n"
+	("if_"^string_of_int (counter())^":\n"^test_to_asm^"\n\tcmp rax, SOB_FALSE_ADDRESS\n\tje .Lelse\n"^dit_to_asm^"\n\tjmp .Lexit\n\n\t.Lelse:\n"^dif_to_asm^"\n\n\t.Lexit:")
 
 and catenate_subroutine str del = del ^ str ^ "" ^ print_subroutine ^ ""
 and not_subroutine del str = str ;;
