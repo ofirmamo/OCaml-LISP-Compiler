@@ -1,0 +1,45 @@
+((lambda (x)
+	(lambda()
+		(set! x 1))
+		x) 2)
+
+
+1. add new counter for env deepnace
+2. Copy old Env to new pointers
+3. Make new env
+4. Build ExtEnv
+5. Get ASM code of body
+6. MAKE_CLOUSRE rax, body(5), env(4)
+
+
+1. :)
+
+2. ;;; OLd Env is at [rbp + (8 * 2)]
+   ;;; We should copy only the pointres
+
+   assumi |old-env| = 2
+   MALLOC rax, (8 * (2 + 1))
+   mov rbx, [rbp + (8 * 2)]   ==> Get pointer to lex.
+
+   mov  rcx,[rbx]
+   mov [rax + (8 * 1)] , rcx
+
+   mov rcx, [rbx + (8 * 1)]
+   mov [rax + (8 * 2)], rcx
+
+3. 
+
+   assumi |#params| = 2
+   MALLOC rbx, 2*8
+   
+   mov [rbx], [rbp + (8 * 4)]
+   mov [rbx + 8], [rbp + (8 * 5)]
+   
+4. 
+   mov [rax], rbx
+   mov rdx, rax
+
+5. :) rax = pointer_to_body
+	  mov rbx, rax
+
+6. MAKE_CLOSURE(rax, rdx, rbx)

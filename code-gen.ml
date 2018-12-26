@@ -155,15 +155,52 @@ and get_index (_, i, _) = i
 and filter_consts lst sexpr = 
 	List.hd (List.filter (fun (e,_,_) -> expr_eq (Const e) (Const sexpr)) lst);;
 
-let rec genrate_asm del sub_routine consts fvars e = 
+let rec genrate_asm del sub_routine consts fvars e env_length= 
 		match e with
 			| Const'(c) -> sub_routine del ("\tmov rax, " ^ get_const_address c consts ^ "\t;;;Const by genrate")
-			| Var'(VarFree(n)) -> sub_routine del ("\tmov rax, [" ^ (get_fvar_address n fvars) ^ "] ;;; fvar " ^ n)
+			| Var'(VarFree(n)) -> sub_routine del ("\tmov rax, qword [" ^ (get_fvar_address n fvars) ^ "] ;;; fvar " ^ n)
+			| Set'(Var'(VarFree(n)), expr) -> set_free_to_asm fvars consts n expr sub_routine
+			| Var'(VarBound(_,maj,min )) -> var_bound_to_asm fvars consts (string_of_int maj) (string_of_int min) sub_routine
+			| Set'(Var'(VarBound(_, maj, min)), expr) -> set_var_bound_to_asm fvars consts (string_of_int maj) (string_of_int min) expr sub_routine
+			| Var'(VarParam(_,min))-> sub_routine del ("\tmov rax, qword [rbp + 8*(4 +"^(string_of_int min)^")]")
+			| Set'(Var'(VarParam(_,min)), expr) -> set_param_to_asm fvars consts (string_of_int min) expr sub_routine
+			| BoxGet'(v) -> box_get_to_asm fvars consts v sub_routine
+			| BoxSet'(v,expr)-> box_set_to_asm fvars consts v expr sub_routine
+			| Box'(VarParam(_,min)) -> box_param_to_asm fvars consts (string_of_int min) sub_routine 
 			| Seq'(lst) -> e_in_seq lst consts fvars sub_routine
 			| If'(test,dit,dif) -> if_to_asm fvars consts test dit dif sub_routine
 			| Or'(lst) -> or_to_asm fvars consts lst sub_routine
 			| Applic'(rator, rands) -> app_to_asm fvars consts rator rands sub_routine
 			| _ -> raise X_genrate
+
+and box_param_to_asm fvars consts min sub_routine =
+	sub_routine "\n" 
+		("\tMALLOC rax, WORD_SIZE\n\tmov rbx, PVAR("^min^")\n\tmov qword [rax], rbx\n\tmov PVAR("^min^"), rax\n\tmov rax, SOB_VOID_ADDRESS")
+
+and box_set_to_asm fvars consts v expr sub_routine = 
+	let expr_to_asm = genrate_asm "\n" not_subroutine consts fvars expr in
+	let v_to_asm = genrate_asm "\n" not_subroutine consts fvars (Var' v) in
+	sub_routine "\n" (expr_to_asm^"\tpush rax\n"^v_to_asm^"pop qword [rax]\n\tmov rax, SOB_VOID_ADDRESS")
+
+and box_get_to_asm fvars consts v sub_routine = 
+	let v_to_asm = genrate_asm "\n" not_subroutine consts fvars (Var' v) in
+	sub_routine "\n" (v_to_asm^"\tmov rax, qword [rax]")
+
+and set_param_to_asm fvars consts  min expr sub_routine = 
+	let expr_to_asm = genrate_asm "\n" not_subroutine consts fvars expr in
+	sub_routine "\n"  (expr_to_asm^"\tmov qword [rbp + 8 * (4 + min)], rax\n\tmov rax, SOB_VOID_ADDRESS") 
+
+and set_var_bound_to_asm fvars consts maj min expr sub_routine = 
+	let expr_to_asm = genrate_asm "\n" not_subroutine consts fvars expr in
+	sub_routine "\n" (expr_to_asm^"\tmov rbx, qword [rbp + 8*2]\n\tmov rbx, qword [rbx + 8*" ^ maj ^ "]\n\tmov qword [rbx + 8*" ^ min ^ "], rax\n\tmov rax, SOB_VOID_ADDRESS")
+
+and var_bound_to_asm fvars consts maj min sub_routine = 
+	sub_routine "\n" ("\tmov rax, qword [rbp + 8*2]\n\tmov rax, qword [rax + 8*" ^ maj ^ "]\n\tmov rax, qword [rax + 8*" ^ min ^ "]")
+
+and set_free_to_asm fvars consts n expr sub_routine = 
+	let expr_to_asm = genrate_asm "\n" not_subroutine consts fvars expr in
+	let addr = get_fvar_address n fvars in 
+	sub_routine "\n" (expr_to_asm ^ "\tmov qword ["^addr^"], rax\n\tmov rax, SOB_VOID_ADDRESS") 
 
 and app_to_asm fvars consts rator rands sub_routine =
 	let rands_count = string_of_int (List.length rands) in
