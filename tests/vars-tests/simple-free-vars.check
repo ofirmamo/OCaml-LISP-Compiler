@@ -1,0 +1,1 @@
+(equal? '(#<closure [env:602555, code:40105f]>) '(#<procedure +>))

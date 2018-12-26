@@ -75,7 +75,7 @@ and exsits str acc = List.exists (fun (name,value) -> String.equal str name) acc
 and get_fvar_address value fvar_tbl = 
 	let filtred = List.filter (fun (s, _, _) -> String.equal value s) fvar_tbl in
 	if List.length filtred == 1 then fvar_to_addr (List.hd filtred) else raise X_get_fvar_address
-and fvar_to_addr (_, i, _) = "[" ^ fvar_tbl_name ^ " + " ^ string_of_int (i * qw_size) ^ "]";;
+and fvar_to_addr (_, i, _) = fvar_tbl_name ^ " + " ^ string_of_int (i * qw_size);;
 
 let rec collect_unique_const acc expr =
 	match expr with
@@ -158,10 +158,19 @@ and filter_consts lst sexpr =
 let rec genrate_asm del sub_routine consts fvars e = 
 		match e with
 			| Const'(c) -> sub_routine del ("\tmov rax, " ^ get_const_address c consts ^ "\t;;;Const by genrate")
+			| Var'(VarFree(n)) -> sub_routine del ("\tmov rax, [" ^ (get_fvar_address n fvars) ^ "] ;;; fvar " ^ n)
 			| Seq'(lst) -> e_in_seq lst consts fvars sub_routine
 			| If'(test,dit,dif) -> if_to_asm fvars consts test dit dif sub_routine
 			| Or'(lst) -> or_to_asm fvars consts lst sub_routine
+			| Applic'(rator, rands) -> app_to_asm fvars consts rator rands sub_routine
 			| _ -> raise X_genrate
+
+and app_to_asm fvars consts rator rands sub_routine =
+	let rands_count = string_of_int (List.length rands) in
+	let pushti = String.concat "\tpush rax ;;; push arg applic\n\n" 
+		(List.fold_right (fun e acc -> acc @ [(genrate_asm "\n" not_subroutine consts fvars e)]) rands []) in
+	let push_rands_asm = pushti ^ "\tpush rax ;;; push arg applic\n" in
+	push_rands_asm ^ "\tpush " ^ rands_count ^ " ;;; args count applic"
 
 and or_to_asm fvars consts lst sub_routine =
 	let to_asm = List.fold_left (fun acc e -> acc @ [(genrate_asm "" not_subroutine consts fvars e)]) [] lst in

@@ -26,7 +26,7 @@ let make_prologue consts_tbl fvars_tbl =
   let get_fvar_address const = Code_Gen.get_fvar_address const fvars_tbl in
   let make_primitive_closure (prim, label) =
 "    MAKE_CLOSURE(rax, SOB_NIL_ADDRESS, " ^ label  ^ ")
-    mov " ^ (get_fvar_address prim)  ^ ", rax" in
+    mov [" ^ (get_fvar_address prim)  ^ "], rax" in
   let make_constant (c, a, s) = s in
   
 "

@@ -725,7 +725,7 @@ write_sob_closure:
 	ret
 section .data
 .closure:
-	db "#<closure [env:%p, code:%p]>", 0
+	db "#<closure [env:%x, code:%x]>", 0
 
 section .text
 write_sob:
