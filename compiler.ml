@@ -46,8 +46,8 @@ const_tbl:
 ;;; definitions in the epilogue to work properly
 %define SOB_VOID_ADDRESS " ^ get_const_address Void ^ "
 %define SOB_NIL_ADDRESS " ^ get_const_address (Sexpr Nil) ^ "
-%define SOB_FALSE_ADDRESS " ^ get_const_address (Sexpr (Bool true)) ^ "
-%define SOB_TRUE_ADDRESS " ^ get_const_address (Sexpr (Bool false)) ^ "
+%define SOB_FALSE_ADDRESS " ^ get_const_address (Sexpr (Bool false)) ^ "
+%define SOB_TRUE_ADDRESS " ^ get_const_address (Sexpr (Bool true)) ^ "
 
 fvar_tbl:
 " ^ (String.concat "\n" (List.map (fun _ -> "dq T_UNDEFINED") fvars_tbl)) ^ "

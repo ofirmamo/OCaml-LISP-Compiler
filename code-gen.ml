@@ -160,7 +160,14 @@ let rec genrate_asm del sub_routine consts fvars e =
 			| Const'(c) -> sub_routine del ("\tmov rax, " ^ get_const_address c consts ^ "\t;;;Const by genrate")
 			| Seq'(lst) -> e_in_seq lst consts fvars sub_routine
 			| If'(test,dit,dif) -> if_to_asm fvars consts test dit dif sub_routine
+			| Or'(lst) -> or_to_asm fvars consts lst sub_routine
 			| _ -> raise X_genrate
+
+and or_to_asm fvars consts lst sub_routine =
+	let to_asm = List.fold_left (fun acc e -> acc @ [(genrate_asm "" not_subroutine consts fvars e)]) [] lst in
+	let indx = string_of_int (counter()) in
+	sub_routine ("\nLexit_" ^ indx ^ ":\n") 
+		(String.concat ("\n\tcmp rax, SOB_FALSE_ADDRESS\n\tjne Lexit_"^ indx ^ "\n\n") to_asm)
 
 and e_in_seq lst consts fvars sub_routine = 
 	let to_asm = List.fold_left (fun acc e -> acc @ [(genrate_asm "" not_subroutine consts fvars e)]) [] lst in
@@ -170,11 +177,12 @@ and if_to_asm fvars consts test dit dif sub_routine=
 	let test_to_asm = genrate_asm "" not_subroutine consts fvars test in
 	let dit_to_asm =  genrate_asm "" not_subroutine consts fvars dit in
 	let dif_to_asm =  genrate_asm "" not_subroutine consts fvars dif in
+	let indx = string_of_int (counter()) in
 	sub_routine "\n"
-	("if_"^string_of_int (counter())^":\n"^test_to_asm^"\n\tcmp rax, SOB_FALSE_ADDRESS\n\tje .Lelse\n"^dit_to_asm^"\n\tjmp .Lexit\n\n\t.Lelse:\n"^dif_to_asm^"\n\n\t.Lexit:")
+	(""^test_to_asm^"\n\tcmp rax, SOB_FALSE_ADDRESS\n\tje Lelse_"^indx^"\n"^dit_to_asm^"\t\njmp Lexit_"^indx^"\n\nLelse_"^indx^":\n"^dif_to_asm^"\n\nLexit_"^indx^":")
 
 and catenate_subroutine str del = del ^ str ^ "" ^ print_subroutine ^ ""
-and not_subroutine del str = str ;;
+and not_subroutine str del = del ^ str ;;
 
 let make_consts_tbl asts = _make_consts_tbl_ [] 0 (const_tbl asts);;
 let make_fvars_tbl asts  = make_indx_fvar_tbl (List.fold_left _make_fvar_tbl_ prefix_fvar_tbl asts);;

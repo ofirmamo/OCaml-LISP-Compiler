@@ -36,6 +36,8 @@ cwd = os.getcwd()
 # Main loop compile scheme -> compile assembly -> link with gcc, currently using -no-pie -> 
 # -> execute -> collect answer -> execute via Chez Scheme -> collect answer -> is_equal? -> clean..
 for file in scm_files:
+	# Inform Print
+	print("{}.scm...".format(file))
 	# Compile scheme
 	exit_code = os.system("cd {}; ocaml compiler.ml {}/{}.scm > {}/{}.s".format(path_to_compiler,cwd, file, cwd, file))
 	if (exit_code >> 8) != 0:
