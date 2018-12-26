@@ -155,74 +155,93 @@ and get_index (_, i, _) = i
 and filter_consts lst sexpr = 
 	List.hd (List.filter (fun (e,_,_) -> expr_eq (Const e) (Const sexpr)) lst);;
 
-let rec genrate_asm del sub_routine consts fvars e env_length= 
+let rec genrate_asm del sub_routine consts fvars e env_deepnace = 
 		match e with
-			| Const'(c) -> sub_routine del ("\tmov rax, " ^ get_const_address c consts ^ "\t;;;Const by genrate")
-			| Var'(VarFree(n)) -> sub_routine del ("\tmov rax, qword [" ^ (get_fvar_address n fvars) ^ "] ;;; fvar " ^ n)
-			| Set'(Var'(VarFree(n)), expr) -> set_free_to_asm fvars consts n expr sub_routine
-			| Var'(VarBound(_,maj,min )) -> var_bound_to_asm fvars consts (string_of_int maj) (string_of_int min) sub_routine
-			| Set'(Var'(VarBound(_, maj, min)), expr) -> set_var_bound_to_asm fvars consts (string_of_int maj) (string_of_int min) expr sub_routine
-			| Var'(VarParam(_,min))-> sub_routine del ("\tmov rax, qword [rbp + 8*(4 +"^(string_of_int min)^")]")
-			| Set'(Var'(VarParam(_,min)), expr) -> set_param_to_asm fvars consts (string_of_int min) expr sub_routine
-			| BoxGet'(v) -> box_get_to_asm fvars consts v sub_routine
-			| BoxSet'(v,expr)-> box_set_to_asm fvars consts v expr sub_routine
-			| Box'(VarParam(_,min)) -> box_param_to_asm fvars consts (string_of_int min) sub_routine 
-			| Seq'(lst) -> e_in_seq lst consts fvars sub_routine
-			| If'(test,dit,dif) -> if_to_asm fvars consts test dit dif sub_routine
-			| Or'(lst) -> or_to_asm fvars consts lst sub_routine
-			| Applic'(rator, rands) -> app_to_asm fvars consts rator rands sub_routine
+			| Const'(c) -> 
+				sub_routine del ("\tmov rax, " ^ get_const_address c consts ^ "\t;;;Const by genrate")
+			| Var'(VarFree(n)) -> 
+				sub_routine del ("\tmov rax, qword [" ^ (get_fvar_address n fvars) ^ "] ;;; fvar " ^ n)
+			| Set'(Var'(VarFree(n)), expr) -> 
+				set_free_to_asm fvars consts n expr sub_routine env_deepnace
+			| Var'(VarBound(_,maj,min )) -> 
+				var_bound_to_asm fvars consts (string_of_int maj) (string_of_int min) sub_routine
+			| Set'(Var'(VarBound(_, maj, min)), expr) -> 
+				set_var_bound_to_asm fvars consts (string_of_int maj) (string_of_int min) 
+					expr sub_routine env_deepnace
+			| Var'(VarParam(_,min))-> 
+					sub_routine del ("\tmov rax, qword [rbp + 8*(4 +"^(string_of_int min)^")]")
+			| Set'(Var'(VarParam(_,min)), expr) -> 
+					set_param_to_asm fvars consts (string_of_int min) expr sub_routine env_deepnace
+			| BoxGet'(v) -> 
+					box_get_to_asm fvars consts v sub_routine env_deepnace
+			| BoxSet'(v,expr)-> 
+					box_set_to_asm fvars consts v expr sub_routine env_deepnace
+			| Box'(VarParam(_,min)) -> 
+					box_param_to_asm fvars consts (string_of_int min) sub_routine env_deepnace
+			| Seq'(lst) -> 
+					e_in_seq lst consts fvars sub_routine env_deepnace
+			| If'(test,dit,dif) -> 
+					if_to_asm fvars consts test dit dif sub_routine env_deepnace
+			| Or'(lst) -> 
+					or_to_asm fvars consts lst sub_routine env_deepnace
+			| Applic'(rator, rands) -> 
+					app_to_asm fvars consts rator rands sub_routine env_deepnace
 			| _ -> raise X_genrate
 
-and box_param_to_asm fvars consts min sub_routine =
+and box_param_to_asm fvars consts min sub_routine env_deepnace =
 	sub_routine "\n" 
 		("\tMALLOC rax, WORD_SIZE\n\tmov rbx, PVAR("^min^")\n\tmov qword [rax], rbx\n\tmov PVAR("^min^"), rax\n\tmov rax, SOB_VOID_ADDRESS")
 
-and box_set_to_asm fvars consts v expr sub_routine = 
-	let expr_to_asm = genrate_asm "\n" not_subroutine consts fvars expr in
-	let v_to_asm = genrate_asm "\n" not_subroutine consts fvars (Var' v) in
+and box_set_to_asm fvars consts v expr sub_routine env_deepnace = 
+	let expr_to_asm = genrate_asm "\n" not_subroutine consts fvars expr env_deepnace in
+	let v_to_asm = genrate_asm "\n" not_subroutine consts fvars (Var' v) env_deepnace in
 	sub_routine "\n" (expr_to_asm^"\tpush rax\n"^v_to_asm^"pop qword [rax]\n\tmov rax, SOB_VOID_ADDRESS")
 
-and box_get_to_asm fvars consts v sub_routine = 
-	let v_to_asm = genrate_asm "\n" not_subroutine consts fvars (Var' v) in
+and box_get_to_asm fvars consts v sub_routine env_deepnace = 
+	let v_to_asm = genrate_asm "\n" not_subroutine consts fvars (Var' v) env_deepnace in
 	sub_routine "\n" (v_to_asm^"\tmov rax, qword [rax]")
 
-and set_param_to_asm fvars consts  min expr sub_routine = 
-	let expr_to_asm = genrate_asm "\n" not_subroutine consts fvars expr in
+and set_param_to_asm fvars consts  min expr sub_routine env_deepnace = 
+	let expr_to_asm = genrate_asm "\n" not_subroutine consts fvars expr env_deepnace in
 	sub_routine "\n"  (expr_to_asm^"\tmov qword [rbp + 8 * (4 + min)], rax\n\tmov rax, SOB_VOID_ADDRESS") 
 
-and set_var_bound_to_asm fvars consts maj min expr sub_routine = 
-	let expr_to_asm = genrate_asm "\n" not_subroutine consts fvars expr in
+and set_var_bound_to_asm fvars consts maj min expr sub_routine env_deepnace = 
+	let expr_to_asm = genrate_asm "\n" not_subroutine consts fvars expr env_deepnace in
 	sub_routine "\n" (expr_to_asm^"\tmov rbx, qword [rbp + 8*2]\n\tmov rbx, qword [rbx + 8*" ^ maj ^ "]\n\tmov qword [rbx + 8*" ^ min ^ "], rax\n\tmov rax, SOB_VOID_ADDRESS")
 
 and var_bound_to_asm fvars consts maj min sub_routine = 
-	sub_routine "\n" ("\tmov rax, qword [rbp + 8*2]\n\tmov rax, qword [rax + 8*" ^ maj ^ "]\n\tmov rax, qword [rax + 8*" ^ min ^ "]")
+	sub_routine "\n" ("\tmov rax, qword [rbp + 8*2]\n\tmov rax, qword [rax + 8*" ^ 
+										maj ^ "]\n\tmov rax, qword [rax + 8*" ^ min ^ "]")
 
-and set_free_to_asm fvars consts n expr sub_routine = 
-	let expr_to_asm = genrate_asm "\n" not_subroutine consts fvars expr in
+and set_free_to_asm fvars consts n expr sub_routine env_deepnace = 
+	let expr_to_asm = genrate_asm "\n" not_subroutine consts fvars expr env_deepnace in
 	let addr = get_fvar_address n fvars in 
 	sub_routine "\n" (expr_to_asm ^ "\tmov qword ["^addr^"], rax\n\tmov rax, SOB_VOID_ADDRESS") 
 
-and app_to_asm fvars consts rator rands sub_routine =
+and app_to_asm fvars consts rator rands sub_routine env_deepnace =
 	let rands_count = string_of_int (List.length rands) in
 	let pushti = String.concat "\tpush rax ;;; push arg applic\n\n" 
-		(List.fold_right (fun e acc -> acc @ [(genrate_asm "\n" not_subroutine consts fvars e)]) rands []) in
+								(List.fold_right (fun e acc -> acc @ 
+									[(genrate_asm "\n" not_subroutine consts fvars e env_deepnace)]) rands []) in
 	let push_rands_asm = pushti ^ "\tpush rax ;;; push arg applic\n" in
 	push_rands_asm ^ "\tpush " ^ rands_count ^ " ;;; args count applic"
 
-and or_to_asm fvars consts lst sub_routine =
-	let to_asm = List.fold_left (fun acc e -> acc @ [(genrate_asm "" not_subroutine consts fvars e)]) [] lst in
+and or_to_asm fvars consts lst sub_routine env_deepnace =
+	let to_asm = List.fold_left (fun acc e -> acc @ 
+			[(genrate_asm "" not_subroutine consts fvars e env_deepnace)]) [] lst in
 	let indx = string_of_int (counter()) in
 	sub_routine ("\nLexit_" ^ indx ^ ":\n") 
 		(String.concat ("\n\tcmp rax, SOB_FALSE_ADDRESS\n\tjne Lexit_"^ indx ^ "\n\n") to_asm)
 
-and e_in_seq lst consts fvars sub_routine = 
-	let to_asm = List.fold_left (fun acc e -> acc @ [(genrate_asm "" not_subroutine consts fvars e)]) [] lst in
+and e_in_seq lst consts fvars sub_routine  env_deepnace= 
+	let to_asm = List.fold_left (fun acc e -> acc @ 
+			[(genrate_asm "" not_subroutine consts fvars e env_deepnace)]) [] lst in
 	sub_routine "\n" (String.concat "\n" to_asm) 
 
-and if_to_asm fvars consts test dit dif sub_routine=  
-	let test_to_asm = genrate_asm "" not_subroutine consts fvars test in
-	let dit_to_asm =  genrate_asm "" not_subroutine consts fvars dit in
-	let dif_to_asm =  genrate_asm "" not_subroutine consts fvars dif in
+and if_to_asm fvars consts test dit dif sub_routine env_deepnace =  
+	let test_to_asm = genrate_asm "" not_subroutine consts fvars test env_deepnace in
+	let dit_to_asm =  genrate_asm "" not_subroutine consts fvars dit env_deepnace in
+	let dif_to_asm =  genrate_asm "" not_subroutine consts fvars dif env_deepnace in
 	let indx = string_of_int (counter()) in
 	sub_routine "\n"
 	(""^test_to_asm^"\n\tcmp rax, SOB_FALSE_ADDRESS\n\tje Lelse_"^indx^"\n"^dit_to_asm^"\t\njmp Lexit_"^indx^"\n\nLelse_"^indx^":\n"^dif_to_asm^"\n\nLexit_"^indx^":")
@@ -232,6 +251,6 @@ and not_subroutine str del = del ^ str ;;
 
 let make_consts_tbl asts = _make_consts_tbl_ [] 0 (const_tbl asts);;
 let make_fvars_tbl asts  = make_indx_fvar_tbl (List.fold_left _make_fvar_tbl_ prefix_fvar_tbl asts);;
-let generate consts fvars e = genrate_asm "\n" catenate_subroutine consts fvars e;;
+let generate consts fvars e = genrate_asm "\n" catenate_subroutine consts fvars e 0;;
 end;;
 
