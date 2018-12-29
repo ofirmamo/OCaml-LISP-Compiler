@@ -193,24 +193,24 @@ let rec genrate_asm del sub_routine consts fvars e env_deepnace parent_params=
 
 and copy_old_envs i env_deepnace acc_str =
 if i >= env_deepnace then acc_str
-    else acc_str^(copy_old_envs (i+1) env_deepnace ("\n\tmov rcx, [rbx]\n\tmov [rax + (8 * "^(string_of_int i)^")], rcx\n"))
+    else acc_str^(copy_old_envs (i+1) env_deepnace ("\n\tmov rcx, qword [rbx]\n\tmov qword [rax + (8 * "^(string_of_int i)^")], rcx\n"))
 
 and deep_copy_params i num_params acc_str = 
 if i = num_params then acc_str
 	else acc_str^(deep_copy_params (i+1) num_params 
-		("\n\tmov rcx, [rbp + (8 * (4 + "^(string_of_int i)^"))]\n\tmov [rbx + " ^ (string_of_int ( 8 * i)) ^"], rcx\n"))
+		("\n\tmov rcx, qword [rbp + (8 * (4 + "^(string_of_int i)^"))]\n\tmov qword [rbx + " ^ (string_of_int ( 8 * i)) ^"], rcx\n"))
 
 and lambda_simple_to_asm fvars consts num_params body sub_routine env_deepnace parent_params= 
 	let malloc_cp_old_env = 
-	 ("\tMALLOC rax, (8 * "^(string_of_int env_deepnace)^")\n\tmov rbx, [rbp + (8 * 2)]"^(copy_old_envs 1 env_deepnace ""))^"\n" in  
+	 ("\tMALLOC rax, (8 * "^(string_of_int env_deepnace)^")\n\tmov rbx, qword [rbp + (8 * 2)]"^(copy_old_envs 1 env_deepnace ""))^"\n" in  
 	let make_new_env = if (parent_params = (-1)) then ""
 			else "\tMALLOC rbx, (8 *"^(string_of_int parent_params)^")\n"^(deep_copy_params 0 parent_params "")^"\n" in  
-	let build_ext_env = "\tmov [rax] , rbx\n\tmov rdx, rax\n" in
+	let build_ext_env = "\tmov qword [rax] , rbx\n\tmov rdx, rax\n" in
 	let body_to_asm = (genrate_asm "\n" not_subroutine consts fvars body (env_deepnace + 1) num_params) in 
 	let lconter = (string_of_int (counter())) in
 	let body_proc = "\tjmp Lcont_"^lconter^"\nLcode_"^lconter^":\n\tpush rbp\n\tmov rbp, rsp\n"^body_to_asm^"\tleave\n\tret\nLcont_"^lconter^":\n" in
 	let proc_env_if_should =
-		if (env_deepnace = 0) then "\tmov rdx, SOB_NIL_ADDRESS\n"
+		if (env_deepnace = 0) then "\tmov rdx, qword SOB_NIL_ADDRESS\n"
  			else (malloc_cp_old_env^make_new_env^build_ext_env) in
 	sub_routine "\n" (proc_env_if_should^body_proc^("\tMAKE_CLOSURE(rax , rdx , Lcode_"^lconter^")"))	
 
@@ -251,7 +251,11 @@ and set_free_to_asm fvars consts n expr sub_routine env_deepnace parent_params=
 								(List.fold_right (fun e acc -> acc @ 
 									[(genrate_asm "\n" not_subroutine consts fvars e env_deepnace parent_params)]) rands []) in
 	let push_rands_asm = pushti ^ "\tpush rax ;;; push arg applic\n" in
-	push_rands_asm ^ "\tpush " ^ rands_count ^ " ;;; args count applic"
+	let rator_to_asm = genrate_asm "\n" not_subroutine consts fvars rator env_deepnace parent_params in 
+	let pushti_rands = push_rands_asm ^ "\tpush " ^ rands_count ^ " ;;; args count applic\n" in
+
+	pushti_rands^rator_to_asm^"\tCLOSURE_ENV rbx, rax\n\tpush rbx\n\tCLOSURE_CODE rbx, rax\n\tcall rbx\n\tmov rsp, [rsp + 8*("^rands_count^" + 2)]"
+	
 
 and or_to_asm fvars consts lst sub_routine env_deepnace parent_params =
 	let to_asm = List.fold_left (fun acc e -> acc @ 
