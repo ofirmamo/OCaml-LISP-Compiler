@@ -207,9 +207,10 @@ if i = num_params then acc_str
 and lambda_simple_to_asm fvars consts num_params body sub_routine env_deepnace parent_params= 
 	let malloc_cp_old_env = 
 	 ("\tMALLOC rax, (8 * "^(string_of_int env_deepnace)^")\n\tmov rbx, [rbp + (8 * 2)]"^(copy_old_envs 1 env_deepnace ""))^"\n" in  
-	let make_new_env = "\tMALLOC rbx, (8 *"^(string_of_int num_params)^")\n"^(deep_copy_params 0 num_params "")^"\n" in  
+	let make_new_env = if (num_params = (-1)) then ""
+			else "\tMALLOC rbx, (8 *"^(string_of_int parent_params)^")\n"^(deep_copy_params 0 parent_params "")^"\n" in  
 	let build_ext_env = "\tmov [rax] , rbx\n\tmov rdx, rax\n" in
-	let body_to_asm = (genrate_asm "\n" not_subroutine consts fvars body (env_deepnace + 1) parent_params) in 
+	let body_to_asm = (genrate_asm "\n" not_subroutine consts fvars body (env_deepnace + 1) num_params) in 
 	let lconter = (string_of_int (counter())) in
 	let body_proc = "\tjmp Lcont_"^lconter^"\nLcode_"^lconter^":\n\tpush rbp\n\tmov rbp, rsp\n"^body_to_asm^"\tleave\n\tret\nLcont_"^lconter^":\n" in
 	let proc_env_if_should =
