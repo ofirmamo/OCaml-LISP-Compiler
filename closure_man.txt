@@ -1,10 +1,14 @@
-((lambda (x)
+(lambda (x)
 	(lambda()
-		(set! x 1))
+      (lambda () 2)
+      (l..)
+		
 		x) 2)
 
 
-1. add new counter for env deepnace
+
+
+1. Add new counter for env_deepnace & parent_params_num
 2. Copy old Env to new pointers
 3. Make new env
 4. Build ExtEnv
@@ -43,3 +47,4 @@
 	  mov rbx, rax
 
 6. MAKE_CLOSURE(rax, rdx, rbx)
+

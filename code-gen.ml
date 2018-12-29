@@ -90,7 +90,7 @@ let rec collect_unique_const acc expr =
 		| Set'(v, e) | Def'(v, e) -> 
 				(collect_unique_const (collect_unique_const acc v) e)
 		| LambdaSimple'(_, body) | LambdaOpt'(_, _, body) ->
-				collect_unique_const acc expr
+				collect_unique_const acc body
 		| Applic'(rator, rands) | ApplicTP'(rator, rands) ->
 				List.fold_left collect_unique_const acc ([rator] @ rands)
 		| _ -> acc
@@ -184,9 +184,39 @@ let rec genrate_asm del sub_routine consts fvars e env_deepnace =
 					if_to_asm fvars consts test dit dif sub_routine env_deepnace
 			| Or'(lst) -> 
 					or_to_asm fvars consts lst sub_routine env_deepnace
+			| LambdaSimple'(strlst, body) ->
+					lambda_simple_to_asm fvars consts (List.length strlst) body sub_routine env_deepnace
 			| Applic'(rator, rands) -> 
 					app_to_asm fvars consts rator rands sub_routine env_deepnace
 			| _ -> raise X_genrate
+
+
+and copy_old_envs i env_deepnace acc_str =
+if i >= env_deepnace then acc_str
+    else acc_str^(copy_old_envs (i+1) env_deepnace ("\n\tmov rcx, [rbx]\n\tmov [rax + (8 * "^(string_of_int i)^")], rcx\n"))
+
+and deep_copy_params i num_params acc_str = 
+if i = num_params then acc_str
+	else acc_str^(deep_copy_params (i+1) num_params ("\n\tmov rcx, [rbp + (8 * (4 + "^(string_of_int i)^"))]\n\tmov [rbx], rcx\n"))
+
+(* allocate 8*(|oldEnv|+1) *)
+(* aloocate space for params of current env *)
+(* generate code for body with env_deepnace+1 *)
+(* MAKE_CLOSURE (r, env, body) *)
+
+and lambda_simple_to_asm fvars consts num_params body sub_routine env_deepnace= 
+	let malloc_cp_old_env = 
+	 ("\tMALLOC rax, (8 * "^(string_of_int env_deepnace)^")\n\tmov rbx, [rbp + (8 * 2)]"^(copy_old_envs 1 env_deepnace ""))^"\n" in  
+	let make_new_env = "\tMALLOC rbx, (8 *"^(string_of_int num_params)^")\n"^(deep_copy_params 0 num_params "")^"\n" in  
+	let build_ext_env = "\tmov [rax] , rbx\n\tmov rdx, rax\n" in
+	let body_to_asm = (genrate_asm "\n" not_subroutine consts fvars body (env_deepnace + 1)) in 
+	let lconter = (string_of_int (counter())) in
+	let body_proc = "\tjmp Lcont_"^lconter^"\nLcode_"^lconter^":\n\tpush rbp\n\tmov rbp, rsp\n"^body_to_asm^"\tleave\n\tret\nLcont_"^lconter^":\n" in
+	let proc_env_if_should =
+		if (env_deepnace = 0) then "\tmov rdx, SOB_NIL_ADDRESS\n"
+ 			else (malloc_cp_old_env^make_new_env^build_ext_env) in
+	sub_routine "\n" (proc_env_if_should^body_proc^("\tMAKE_CLOSURE(rax , rdx , Lcode_"^lconter^")"))	
+
 
 and box_param_to_asm fvars consts min sub_routine env_deepnace =
 	sub_routine "\n" 
