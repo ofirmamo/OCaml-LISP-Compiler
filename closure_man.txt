@@ -48,3 +48,8 @@
 
 6. MAKE_CLOSURE(rax, rdx, rbx)
 
+
+landa x 
+   lamda y 
+   1
+
