@@ -197,17 +197,13 @@ if i >= env_deepnace then acc_str
 
 and deep_copy_params i num_params acc_str = 
 if i = num_params then acc_str
-	else acc_str^(deep_copy_params (i+1) num_params ("\n\tmov rcx, [rbp + (8 * (4 + "^(string_of_int i)^"))]\n\tmov [rbx], rcx\n"))
-
-(* allocate 8*(|oldEnv|+1) *)
-(* aloocate space for params of current env *)
-(* generate code for body with env_deepnace+1 *)
-(* MAKE_CLOSURE (r, env, body) *)
+	else acc_str^(deep_copy_params (i+1) num_params 
+		("\n\tmov rcx, [rbp + (8 * (4 + "^(string_of_int i)^"))]\n\tmov [rbx + " ^ (string_of_int ( 8 * i)) ^"], rcx\n"))
 
 and lambda_simple_to_asm fvars consts num_params body sub_routine env_deepnace parent_params= 
 	let malloc_cp_old_env = 
 	 ("\tMALLOC rax, (8 * "^(string_of_int env_deepnace)^")\n\tmov rbx, [rbp + (8 * 2)]"^(copy_old_envs 1 env_deepnace ""))^"\n" in  
-	let make_new_env = if (num_params = (-1)) then ""
+	let make_new_env = if (parent_params = (-1)) then ""
 			else "\tMALLOC rbx, (8 *"^(string_of_int parent_params)^")\n"^(deep_copy_params 0 parent_params "")^"\n" in  
 	let build_ext_env = "\tmov [rax] , rbx\n\tmov rdx, rax\n" in
 	let body_to_asm = (genrate_asm "\n" not_subroutine consts fvars body (env_deepnace + 1) num_params) in 
