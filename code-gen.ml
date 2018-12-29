@@ -161,7 +161,7 @@ let rec genrate_asm del sub_routine consts fvars e env_deepnace parent_params=
 				sub_routine del ("\tmov rax, " ^ get_const_address c consts ^ "\t;;;Const by genrate")
 			| Var'(VarFree(n)) -> 
 				sub_routine del ("\tmov rax, qword [" ^ (get_fvar_address n fvars) ^ "] ;;; fvar " ^ n)
-			| Set'(Var'(VarFree(n)), expr) -> 
+			| Set'(Var'(VarFree(n)), expr) | Def'(Var'(VarFree(n)), expr) -> 
 				set_free_to_asm fvars consts n expr sub_routine env_deepnace parent_params
 			| Var'(VarBound(_,maj,min )) -> 
 				var_bound_to_asm fvars consts (string_of_int maj) (string_of_int min) sub_routine
@@ -228,9 +228,9 @@ and box_get_to_asm fvars consts v sub_routine env_deepnace parent_params =
 	let v_to_asm = genrate_asm "\n" not_subroutine consts fvars (Var' v) env_deepnace parent_params in
 	sub_routine "\n" (v_to_asm^"\tmov rax, qword [rax]")
 
-and set_param_to_asm fvars consts  min expr sub_routine env_deepnace parent_params = 
+and set_param_to_asm fvars consts min expr sub_routine env_deepnace parent_params = 
 	let expr_to_asm = genrate_asm "\n" not_subroutine consts fvars expr env_deepnace parent_params in
-	sub_routine "\n"  (expr_to_asm^"\tmov qword [rbp + 8 * (4 + min)], rax\n\tmov rax, SOB_VOID_ADDRESS") 
+	sub_routine "\n"  (expr_to_asm^"\tmov qword [rbp + 8 * (4 +" ^ min ^ ")], rax\n\tmov rax, SOB_VOID_ADDRESS") 
 
 and set_var_bound_to_asm fvars consts maj min expr sub_routine env_deepnace parent_params= 
 	let expr_to_asm = genrate_asm "\n" not_subroutine consts fvars expr env_deepnace parent_params in
@@ -250,11 +250,12 @@ and set_free_to_asm fvars consts n expr sub_routine env_deepnace parent_params=
 	let pushti = String.concat "\tpush rax ;;; push arg applic\n\n" 
 								(List.fold_right (fun e acc -> acc @ 
 									[(genrate_asm "\n" not_subroutine consts fvars e env_deepnace parent_params)]) rands []) in
-	let push_rands_asm = pushti ^ "\tpush rax ;;; push arg applic\n" in
+	let push_rands_asm = if (String.equal pushti "") then ""
+		else pushti ^ "\tpush rax ;;; push arg applic\n" in
 	let rator_to_asm = genrate_asm "\n" not_subroutine consts fvars rator env_deepnace parent_params in 
 	let pushti_rands = push_rands_asm ^ "\tpush " ^ rands_count ^ " ;;; args count applic\n" in
-
-	pushti_rands^rator_to_asm^"\tCLOSURE_ENV rbx, rax\n\tpush rbx\n\tCLOSURE_CODE rbx, rax\n\tcall rbx\n\tmov rsp, [rsp + 8*("^rands_count^" + 2)]"
+	sub_routine "\n\n" (pushti_rands^rator_to_asm^"\tCLOSURE_ENV rbx, rax\n\tpush rbx\n\tCLOSURE_CODE rbx, rax
+	call rbx\n\tadd rsp, 8*("^rands_count^" + 2)")
 	
 
 and or_to_asm fvars consts lst sub_routine env_deepnace parent_params =
