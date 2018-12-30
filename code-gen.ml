@@ -251,12 +251,12 @@ and set_free_to_asm fvars consts n expr sub_routine env_deepnace parent_params=
 	let pushti = String.concat "\tpush rax ;;; push arg applic\n\n" 
 								(List.fold_right (fun e acc -> acc @ 
 									[(genrate_asm "\n" not_subroutine consts fvars e env_deepnace parent_params)]) rands []) in
-	let push_rands_asm = if (String.equal pushti "") then ""
-		else pushti ^ "\tpush rax ;;; push arg applic\n" in
+	let push_rands_asm = if (String.equal pushti "") then "\tpush SOB_NIL_ADDRESS\n"
+		else "\tpush SOB_NIL_ADDRESS\n" ^ pushti ^ "\tpush rax ;;; push arg applic\n" in
 	let rator_to_asm = genrate_asm "\n" not_subroutine consts fvars rator env_deepnace parent_params in 
 	let pushti_rands = push_rands_asm ^ "\tpush " ^ rands_count ^ " ;;; args count applic\n" in
 	sub_routine "\n\n" (pushti_rands^rator_to_asm^"\tCLOSURE_ENV rbx, rax\n\tpush rbx\n\tCLOSURE_CODE rbx, rax
-	call rbx\n\tadd rsp, 8*("^rands_count^" + 2)")
+	call rbx\n\tadd rsp, 8*("^rands_count^" + 3)")
 	
 
 and or_to_asm fvars consts lst sub_routine env_deepnace parent_params =
