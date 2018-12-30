@@ -73,7 +73,7 @@ let _hwsc_ =
 let rec _sexpr_ chl = 
   (PC.disj_list [SExpParser.parser; _compound_sexpr_]) chl
 and _compound_sexpr_ chl = 
-    (PC.disj_list [ _vector_;_dotedlist_ ; _list_;_quoted_ ]) chl
+    (PC.disj_list [ _vector_; _list_; _dotedlist_ ;_quoted_ ]) chl
 
 and _nested_sexpr_ chl = 
     (PC.disj_list [SExpParser.parser; _nested_compound_sexpr_]) chl
@@ -117,7 +117,7 @@ and _list_ chl =
     let _listed_doted_ = PC.caten _lparen_ (PC.caten _nested_skip_ (_pwd_ _rparen_)) in
     let _listed_bdoted_ = PC.caten _lbparen_ (PC.caten _nested_skip_ (_pwd_ _rbparen_)) in
 
-    (PC.pack (PC.disj_list [_listed_bdoted_;_listed_doted_; _listed_ ; _listed_barcket_])
+    (PC.pack (PC.disj_list [_listed_ ; _listed_barcket_; _listed_bdoted_;_listed_doted_])
       (fun (lp ,(sxprl , rp)) -> 
         List.fold_right (fun elem acc -> Pair (elem, acc)) sxprl Nil)) chl
 

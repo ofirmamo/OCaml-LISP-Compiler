@@ -193,7 +193,8 @@ let rec genrate_asm del sub_routine consts fvars e env_deepnace parent_params=
 
 and copy_old_envs i env_deepnace acc_str =
 if i >= env_deepnace then acc_str
-    else acc_str^(copy_old_envs (i+1) env_deepnace ("\n\tmov rcx, qword [rbx]\n\tmov qword [rax + (8 * "^(string_of_int i)^")], rcx\n"))
+		else acc_str^(copy_old_envs (i+1) env_deepnace ("\n\tmov rcx, qword [rbx + (8 * " ^ (string_of_int (i- 1))
+			^ ")]\n\tmov qword [rax + (8 * "^(string_of_int i)^")], rcx\n"))
 
 and deep_copy_params i num_params acc_str = 
 if i = num_params then acc_str
@@ -208,7 +209,7 @@ and lambda_simple_to_asm fvars consts num_params body sub_routine env_deepnace p
 	let build_ext_env = "\tmov qword [rax] , rbx\n\tmov rdx, rax\n" in
 	let body_to_asm = (genrate_asm "\n" not_subroutine consts fvars body (env_deepnace + 1) num_params) in 
 	let lconter = (string_of_int (counter())) in
-	let body_proc = "\tjmp Lcont_"^lconter^"\nLcode_"^lconter^":\n\tpush rbp\n\tmov rbp, rsp\n"^body_to_asm^"\tleave\n\tret\nLcont_"^lconter^":\n" in
+	let body_proc = "\tjmp Lcont_"^lconter^"\nLcode_"^lconter^":\n\tpush rbp\n\tmov rbp, rsp\n\n"^body_to_asm^"\tleave\n\tret\nLcont_"^lconter^":\n" in
 	let proc_env_if_should =
 		if (env_deepnace = 0) then "\tmov rdx, qword SOB_NIL_ADDRESS\n"
  			else (malloc_cp_old_env^make_new_env^build_ext_env) in
@@ -216,13 +217,13 @@ and lambda_simple_to_asm fvars consts num_params body sub_routine env_deepnace p
 
 
 and box_param_to_asm fvars consts min sub_routine env_deepnace =
-	sub_routine "\n" 
-		("\tMALLOC rax, WORD_SIZE\n\tmov rbx, PVAR("^min^")\n\tmov qword [rax], rbx\n\tmov PVAR("^min^"), rax\n\tmov rax, SOB_VOID_ADDRESS")
+	sub_routine "\n\n" 
+		("\tMALLOC rax, WORD_SIZE\n\tmov rbx, PVAR("^min^")\n\tmov qword [rax], rbx")
 
 and box_set_to_asm fvars consts v expr sub_routine env_deepnace parent_params = 
 	let expr_to_asm = genrate_asm "\n" not_subroutine consts fvars expr env_deepnace parent_params in
 	let v_to_asm = genrate_asm "\n" not_subroutine consts fvars (Var' v) env_deepnace parent_params in
-	sub_routine "\n" (expr_to_asm^"\tpush rax\n"^v_to_asm^"pop qword [rax]\n\tmov rax, SOB_VOID_ADDRESS")
+	sub_routine "\n" (expr_to_asm^"\tpush rax\n"^v_to_asm^"\tpop qword [rax]\n\tmov rax, SOB_VOID_ADDRESS")
 
 and box_get_to_asm fvars consts v sub_routine env_deepnace parent_params = 
 	let v_to_asm = genrate_asm "\n" not_subroutine consts fvars (Var' v) env_deepnace parent_params in
