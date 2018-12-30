@@ -49,8 +49,8 @@ let prefix_fvar_tbl =
    "vector-length", "vector_length"; "vector-ref", "vector_ref"; "vector-set!", "vector_set";
    "make-vector", "make_vector"; "symbol->string", "symbol_to_string"; 
    "char->integer", "char_to_integer"; "integer->char", "integer_to_char"; "eq?", "is_eq";
-   "+", "bin_add"; "*", "bin_mul"; "-", "bin_sub"; "/", "bin_div"; "<", "bin_lt"; "=", "bin_equ"
-(* you can add yours here *)];;
+	 "+", "bin_add"; "*", "bin_mul"; "-", "bin_sub"; "/", "bin_div"; "<", "bin_lt"; "=", "bin_equ";
+	 "car", "car"; "cdr", "cdr"; "cons", "cons"; "set-car!", "set_car"; "set-cdr!", "set_cdr"];;
 
 let make_indx_fvar_tbl l = List.mapi (fun indx (name, value) -> (name,indx,value)) l ;;
 

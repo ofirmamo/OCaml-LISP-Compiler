@@ -894,3 +894,59 @@ bin_equ:
     leave
     ret
 
+car:
+    push rbp
+    mov rbp, rsp
+
+    mov rax, PVAR(0) ;;; SOB list.
+    CAR rax, rax     ;;; Car of the list now in rax
+
+    leave
+    ret
+
+cdr:
+    push rbp
+    mov rbp, rsp
+
+    mov rax, PVAR(0)
+    CDR rax, rax
+
+    leave
+    ret
+
+cons:
+    push rbp
+    mov rbp, rsp
+
+    mov rcx, PVAR(0)
+    mov rbx, PVAR(1)
+    MAKE_PAIR(rax, rcx, rbx)
+
+    leave
+    ret
+
+set_car:
+    push rbp
+    mov rbp, rsp
+
+    mov rbx, PVAR(0)  ;; SOB Pair.
+    mov rcx, PVAR(1)  ;; New value for pair
+    mov qword [rbx + TYPE_SIZE], rcx
+    mov rax, SOB_VOID_ADDRESS
+
+    leave
+    ret
+
+set_cdr:
+    push rbp
+    mov rbp,rsp
+
+    mov rbx, PVAR(0)
+    mov rcx, PVAR(1)
+    mov qword [rbx + TYPE_SIZE + WORD_SIZE], rcx
+    mov rax, SOB_VOID_ADDRESS
+
+    leave
+    ret
+
+
