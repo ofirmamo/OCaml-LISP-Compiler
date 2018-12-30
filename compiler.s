@@ -246,9 +246,11 @@ write_sob_float:
 	movq xmm0, rsi
 	mov rdi, .float_format_string
 	mov rax, 1
-	sub rsp, 8
+
+	mov rsi, rsp
+	and rsp, -16
 	call printf
-	add rsp, 8
+	mov rsp, rsi
 
 	leave
 	ret
