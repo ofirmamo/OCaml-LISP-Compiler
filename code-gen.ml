@@ -125,7 +125,7 @@ let rec _make_consts_tbl_ acc indx lst =
 			(_make_consts_tbl_ (acc @ [Sexpr(Bool true), indx, "MAKE_LIT_BOOL(1)"]) 
 				(indx + bool_size) tl)
 		| Sexpr(Char(c)) :: tl -> 
-			(_make_consts_tbl_ (acc @ [Sexpr(Char(c)), indx, "MAKE_LIT_CHAR('" ^ String.make 1 c ^"')"]) 
+			(_make_consts_tbl_ (acc @ [Sexpr(Char(c)), indx, "MAKE_LIT_CHAR(" ^ (string_of_int (Char.code c)) ^")"]) 
 				(indx + char_size) tl)
 		| Sexpr(Number(Int x)) :: tl -> 
 			(_make_consts_tbl_ (acc @ [Sexpr(Number(Int x)), indx, "MAKE_LIT_INT("^ string_of_int x ^")"]) 
@@ -136,7 +136,7 @@ let rec _make_consts_tbl_ acc indx lst =
 		| Sexpr(String str) :: tl -> 
 			(_make_consts_tbl_ 
 				(acc @ [Sexpr(String str), indx, "MAKE_LIT_STRING " ^ string_of_int(String.length str) ^
-				", \"" ^ str ^ "\""]) 
+				", " ^ (make_comma_str str 0 (String.length str))]) 
 				(indx + (string_size str)) tl)
 		| Sexpr(Symbol str) :: tl -> (* Because Topologic sort str exist *)
 			(_make_consts_tbl_ (acc @ [Sexpr(Symbol str), indx, 
@@ -148,6 +148,11 @@ let rec _make_consts_tbl_ acc indx lst =
 				^ get_const_address (Sexpr cdr) acc ^ ")"]) (indx + pair_size) tl)
 		| Sexpr(Vector(lst)) :: tl -> (_make_consts_tbl_ (acc @ [ Sexpr(Vector lst) , indx,
 				"MAKE_LIT_VECTOR " ^ (String.concat ", " (List.map (fun sexpr -> get_const_address (Sexpr(sexpr)) acc) lst))  ^ "" ]) (indx + (vec_size lst)) tl)
+
+and make_comma_str str indx len =
+	if indx = (len - 1) 
+		then (string_of_int(Char.code(String.get str indx))) 
+			else (string_of_int(Char.code(String.get str indx))) ^ ", " ^ (make_comma_str str (indx + 1) len)
 
 and get_const_address e lst = 
 	"" ^ const_tbl_name ^ " + " ^ string_of_int (get_index(filter_consts lst e)) ^ ""

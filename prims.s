@@ -218,7 +218,7 @@ string_set:
     add rsi, rdi
 
     mov rax, PVAR(2)
-    CHAR_VAL rax, rax
+    CHAR_VAL al, rax
     mov byte [rsi], al
     mov rax, SOB_VOID_ADDRESS
 
@@ -233,7 +233,7 @@ make_string:
     mov rsi, PVAR(0)
     INT_VAL rsi, rsi
     mov rdi, PVAR(1)
-    CHAR_VAL rdi, rdi
+    CHAR_VAL dil, rdi
     and rdi, 255
 
     MAKE_STRING rax, rsi, dil
@@ -351,7 +351,7 @@ char_to_integer:
 
     
     mov rsi, PVAR(0)
-    CHAR_VAL rsi, rsi
+    CHAR_VAL sil, rsi
     and rsi, 255
     MAKE_INT(rax, rsi)
 

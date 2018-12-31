@@ -16,5 +16,11 @@
 
 ; (list)
 
+#\space
 #\newline
+#\nul
+#\tab
+#\page
+#\space
+"Hello\n"
 

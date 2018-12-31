@@ -34,7 +34,9 @@
 
 %define INT_VAL SKIP_TYPE_TAG
 
-%define CHAR_VAL SKIP_TYPE_TAG
+%macro CHAR_VAL 2
+	mov %1, byte [%2+TYPE_SIZE]
+%endmacro
 
 %define FLOAT_VAL SKIP_TYPE_TAG
 
@@ -177,7 +179,7 @@
 %endmacro
 
 ;;; Make literal string with length %1
-%macro MAKE_LIT_STRING 2
+%macro MAKE_LIT_STRING 2+
 	db T_STRING
 	dq %1
 	db %2
@@ -263,24 +265,24 @@ write_sob_char:
 	push rbp
 	mov rbp, rsp
 
-	CHAR_VAL rsi, rsi
+	CHAR_VAL sil, rsi
 
-	cmp rsi, CHAR_NUL
+	cmp sil, CHAR_NUL
 	je .Lnul
 
-	cmp rsi, CHAR_TAB
+	cmp sil, CHAR_TAB
 	je .Ltab
 
-	cmp rsi, CHAR_NEWLINE
+	cmp sil, CHAR_NEWLINE
 	je .Lnewline
 
-	cmp rsi, CHAR_PAGE
+	cmp sil, CHAR_PAGE
 	je .Lpage
 
-	cmp rsi, CHAR_RETURN
+	cmp sil, CHAR_RETURN
 	je .Lreturn
 
-	cmp rsi, CHAR_SPACE
+	cmp sil, CHAR_SPACE
 	je .Lspace
 	jg .Lregular
 
