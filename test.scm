@@ -16,8 +16,5 @@
 
 ; (list)
 
-(lambda (x y z)
-    (lambda (x y)
-        (lambda (x)
-            x)))
+#\newline
 
