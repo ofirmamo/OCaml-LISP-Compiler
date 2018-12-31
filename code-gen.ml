@@ -186,6 +186,8 @@ let rec genrate_asm del sub_routine consts fvars e env_deepnace parent_params=
 					or_to_asm fvars consts lst sub_routine env_deepnace parent_params
 			| LambdaSimple'(strlst, body) ->
 					lambda_simple_to_asm fvars consts (List.length strlst) body sub_routine env_deepnace parent_params
+			| LambdaOpt'(params, vs, body) ->
+					lambda_opt_to_asm fvars consts (List.length params) body sub_routine env_deepnace parent_params
 			| Applic'(rator, rands) -> 
 					app_to_asm fvars consts rator rands sub_routine env_deepnace parent_params
 			| _ -> raise X_genrate
@@ -201,7 +203,7 @@ if i = num_params then acc_str
 	else acc_str^(deep_copy_params (i+1) num_params 
 		("\n\tmov rcx, qword [rbp + (8 * (4 + "^(string_of_int i)^"))]\n\tmov qword [rbx + " ^ (string_of_int ( 8 * i)) ^"], rcx\n"))
 
-and lambda_simple_to_asm fvars consts num_params body sub_routine env_deepnace parent_params= 
+and lambda_simple_to_asm fvars consts num_params body sub_routine env_deepnace parent_params = 
 	let malloc_cp_old_env = 
 	 ("\tMALLOC rax, (8 * "^(string_of_int env_deepnace)^")\n\tmov rbx, qword [rbp + (8 * 2)]"^(copy_old_envs 1 env_deepnace ""))^"\n" in  
 	let make_new_env = if (parent_params = (-1)) then ""
@@ -215,6 +217,34 @@ and lambda_simple_to_asm fvars consts num_params body sub_routine env_deepnace p
  			else (malloc_cp_old_env^make_new_env^build_ext_env) in
 	sub_routine "\n" (proc_env_if_should^body_proc^("\tMAKE_CLOSURE(rax , rdx , Lcode_"^lconter^")"))	
 
+and build_adjustment_loop params_str = ".loop:\n\tcmp rbx, 0\n\tjle .after_adjust\n\n" ^
+		"\tadd rsp, (" ^ params_str ^ " + 2) * WORD_SIZE\n\tmov rax, rbx\n\tmov rdx, WORD_SIZE\n\tmul rdx" ^
+		"\n\tadd rsp, rax\n\tmov rdx, qword [rsp]\n\tsub rsp, rax\n\tsub rsp, (" ^ params_str ^" + 2) * WORD_SIZE" ^
+		"\n\tmov rsi, rcx\n\tMAKE_PAIR(rcx, rdx, rsi)\n\tsub rbx, 1\n\tjmp .loop\n\n"
+
+and adjust_stack num_params =
+		let params_str = (string_of_int num_params) in
+		let get_n = "mov rbx, qword [rsp + 2 * WORD_SIZE]\n" in
+		let sub_m = "\tsub rbx, " ^ params_str ^ "\n" in
+		let nil = "\tmov rcx, SOB_NIL_ADDRESS\n" in
+		let loop = build_adjustment_loop params_str in
+		get_n ^ sub_m  ^ nil ^ loop ^
+		".after_adjust:\n\tmov qword [rsp + (3 + " ^ params_str ^ ") * WORD_SIZE], rcx\n"
+
+and lambda_opt_to_asm fvars consts num_params body sub_routine env_deepnace parent_params = 
+let malloc_cp_old_env = 
+	("\tMALLOC rax, (8 * "^(string_of_int env_deepnace)^")\n\tmov rbx, qword [rbp + (8 * 2)]"^(copy_old_envs 1 env_deepnace ""))^"\n" in  
+let make_new_env = if (parent_params = (-1)) then ""
+	else "\tMALLOC rbx, (8 *"^(string_of_int parent_params)^")\n"^(deep_copy_params 0 parent_params "")^"\n" in  
+let build_ext_env = "\tmov qword [rax] , rbx\n\tmov rdx, rax\n" in
+let body_to_asm = (genrate_asm "\n" not_subroutine consts fvars body (env_deepnace + 1) (num_params + 1)) in 
+let lconter = (string_of_int (counter())) in
+let body_proc = "\tjmp Lcont_"^lconter^"\nLcode_" ^ lconter ^
+		":\n\t" ^ (adjust_stack num_params) ^ "\tpush rbp\n\tmov rbp, rsp\n\n"^body_to_asm^"\tleave\n\tret\nLcont_"^lconter^":\n" in
+let proc_env_if_should =
+	if (env_deepnace = 0) then "\tmov rdx, qword SOB_NIL_ADDRESS\n"
+		 else (malloc_cp_old_env^make_new_env^build_ext_env) in
+sub_routine "\n" (proc_env_if_should^body_proc^("\tMAKE_CLOSURE(rax , rdx , Lcode_"^lconter^")"))	
 
 and box_param_to_asm fvars consts min sub_routine env_deepnace =
 	sub_routine "\n\n" 
