@@ -1,17 +1,23 @@
-;(define list (lambda (a . l) l))
+; (define list (lambda (l) l))
 
-;(list 1 2 3 4 5)
+; (list 1 2 3 4 5)
 
-;(define cari 
+; (define cari 
 ;    (lambda (a b c d . e)
 ;        (car e)))
 
-;(cari 1 2 3 4 5 6 7 8)
+; (cari 1 2 3 4 5 6 7 8)
 
-(define list2
-    (lambda (a . l)
-        ((lambda () l))))
+; (define list2
+;     (lambda (a . l)
+;         ((lambda () l))))
     
-(list2 1 2 3 4 5)
+; (list2 1 2 3 4 5)
 
-;(+ 1 2)
+; (list)
+
+(lambda (x y z)
+    (lambda (x y)
+        (lambda (x)
+            x)))
+
