@@ -949,4 +949,85 @@ set_cdr:
     leave
     ret
 
+apply:
+    push rbp
+	mov rbp, rsp
 
+    push SOB_NIL_ADDRESS
+    mov rsi, [rbp + 3 * WORD_SIZE]              ;; Num Params
+    mov rbx, [rbp + (rsi + 3) * WORD_SIZE]
+    mov rcx, 0                                  ;; Counter of params
+
+    cmp byte [rbx], T_PAIR
+    je .list_length
+    cmp byte [rbx], T_NIL
+    je .continue
+    jmp .wrong_type
+
+.list_length:
+    mov rdx, rbx
+    mov rdi, 0
+
+.length_loop:
+    inc rdi
+    CDR rdx, rdx
+    cmp byte [rdx], T_NIL
+    je .length_continue
+    cmp byte [rdx], T_PAIR
+    je .length_loop
+    jmp .wrong_type
+
+.length_continue:
+    shl rdi, 3
+    sub rsp, rdi
+
+.list_loop:
+    CAR rax, rbx
+    mov qword [rsp], rax
+    add rsp, WORD_SIZE
+    add rcx, 1
+    CDR rbx, rbx
+    cmp byte [rbx], T_NIL
+    je .continue
+    jmp .list_loop
+
+.continue:
+    sub rsp, rdi
+    sub rsi, 2
+    add rcx, rsi
+
+.loop:
+    cmp rsi, 0
+    je .continue_loop
+    mov rax, [rbp + (WORD_SIZE * (4 +rsi))]
+    push rax
+    dec rsi
+    jmp .loop
+
+.continue_loop:
+    push rcx
+    add rcx, 5
+    mov rax, [rbp + 4 * WORD_SIZE] ;;; Proc!
+    CLOSURE_ENV rbx, rax
+    push rbx
+    push qword [rbp + WORD_SIZE]
+    push qword [rbp]
+    CLOSURE_CODE rax, rax
+.shift:
+    SHIFT_FRAME2 rcx
+.after_shift:
+    pop rbp
+    jmp rax
+    ; add rsp, WORD_SIZE
+	; pop rbx
+	; add rbx, 1
+	; shl rbx, 3
+	; add rsp, rbx
+
+.ret:
+    leave
+    ret
+
+.wrong_type:
+    mov rax, SOB_VOID_ADDRESS
+    jmp .ret

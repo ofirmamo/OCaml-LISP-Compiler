@@ -79,6 +79,50 @@
 	sub %1, [rsp]
 	add rsp, 8
 %endmacro
+
+;;; Shift frame for ApplicTP' %1 is new frame size.
+%macro SHIFT_FRAME 1
+	push rax
+	mov rax, qword [rbp + (3 * WORD_SIZE)]
+	add rax, 5
+	mov rsi, rax
+%assign i 1
+%rep %1
+	dec rax
+	mov r8, qword [rbp-(WORD_SIZE * i)]
+	mov qword [rbp+(WORD_SIZE * rax)], r8
+%assign i (i+1)
+%endrep
+	pop rax
+	shl rsi, 3
+	add rsp, rsi
+ %endmacro
+
+ ;;; Shift frame for ApplicTP' %1 is new frame size.
+%macro SHIFT_FRAME2 1
+	push rax
+	mov rax, qword [rbp + (3 * WORD_SIZE)]
+	add rax, 5
+	mov rsi, rax
+	mov rbx, 0
+%%rep: 
+	cmp %1, 0
+	jz %%endrep
+	dec %1
+	dec rax
+	inc rbx
+	shl rbx, 3
+	sub rbp, rbx
+	mov r8, qword [rbp]
+	add rbp, rbx
+	shr rbx, 3
+	mov qword [rbp+(WORD_SIZE * rax)], r8
+	jmp %%rep
+%%endrep:
+	pop rax
+	shl rsi, 3
+	add rsp, rsi
+ %endmacro
 	
 ; Creates a short SOB with the
 ; value %2

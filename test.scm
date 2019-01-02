@@ -1,26 +1,19 @@
-; (define list (lambda (l) l))
+;(lambda (proc obj . lst) proc)
 
-; (list 1 2 3 4 5)
+;(apply + 1 '(2 3) '(4 5))
 
-; (define cari 
-;    (lambda (a b c d . e)
-;        (car e)))
+; (define flat
+; 	(lambda (lst)
+; 		(if (null? (cdr lst))
+; 				(car lst)
+; 				(cons (car lst) (flat (cdr lst)))))) 
 
-; (cari 1 2 3 4 5 6 7 8)
+; (apply list 1 2 '(3 4 5))
 
-; (define list2
-;     (lambda (a . l)
-;         ((lambda () l))))
-    
-; (list2 1 2 3 4 5)
+; (apply list 1 2 3 '(4))
+;(+ 1 2)
+;(* 1 2 3 4)
+;(- 8 2 2 2)
+;(/ 10 2 2)
 
-; (list)
-
-#\space
-#\newline
-#\nul
-#\tab
-#\page
-#\space
-"Hello\n"
-
+(+ 1 2)

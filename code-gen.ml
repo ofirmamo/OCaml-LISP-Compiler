@@ -20,6 +20,7 @@ let qw_size = 8;;
 let const_tbl_name = "const_tbl";;
 let fvar_tbl_name = "fvar_tbl";;
 let print_subroutine = "\tcall write_sob_if_not_void\t;;;Print Sub Routine\n";;
+let after_app = "\tadd rsp, WORD_SIZE\n\tpop rbx\n\tadd rbx, 1\n\tshl rbx, 3\n\tadd rsp, rbx";;
 
 let void_size = byte_size;;	(* Only Tag.. *)
 let nil_size = byte_size;; (* Only Tag.. *)
@@ -50,7 +51,8 @@ let prefix_fvar_tbl =
    "make-vector", "make_vector"; "symbol->string", "symbol_to_string"; 
    "char->integer", "char_to_integer"; "integer->char", "integer_to_char"; "eq?", "is_eq";
 	 "+", "bin_add"; "*", "bin_mul"; "-", "bin_sub"; "/", "bin_div"; "<", "bin_lt"; "=", "bin_equ";
-	 "car", "car"; "cdr", "cdr"; "cons", "cons"; "set-car!", "set_car"; "set-cdr!", "set_cdr"];;
+	 "car", "car"; "cdr", "cdr"; "cons", "cons"; "set-car!", "set_car"; "set-cdr!", "set_cdr";
+	 "apply", "apply"];;
 
 let make_indx_fvar_tbl l = List.mapi (fun indx (name, value) -> (name,indx,value)) l ;;
 
@@ -195,7 +197,37 @@ let rec genrate_asm del sub_routine consts fvars e env_deepnace parent_params=
 					lambda_opt_to_asm fvars consts (List.length params) body sub_routine env_deepnace parent_params
 			| Applic'(rator, rands) -> 
 					app_to_asm fvars consts rator rands sub_routine env_deepnace parent_params
+			| ApplicTP'(rator, rands) ->
+					appTP_to_asm fvars consts rator rands sub_routine env_deepnace parent_params
 			| _ -> raise X_genrate
+
+
+and appTP_to_asm fvars consts rator rands sub_routine env_deepnace parent_params =
+	let rands_count = string_of_int (List.length rands) in	
+	let pushti = String.concat "\tpush rax ;;; push arg applic\n\n" 
+		(List.fold_right (fun e acc -> acc @ 
+			[(genrate_asm "\n" not_subroutine consts fvars e env_deepnace parent_params)]) rands []) in	
+	let push_rands_asm = if (String.equal pushti "") then "\tpush SOB_NIL_ADDRESS\n"
+			else "\tpush SOB_NIL_ADDRESS\n" ^ pushti ^ "\tpush rax ;;; push arg applic\n" in
+	let rator_to_asm = genrate_asm "\n" not_subroutine consts fvars rator env_deepnace parent_params ^
+			"\tCLOSURE_ENV rbx, rax\n\tpush rbx\n\n" in 
+	let pushti_rands = push_rands_asm ^ "\tpush " ^ rands_count ^ " ;;; args count applic\n\n" in
+	let old_rbp = "\tpush qword [rbp + 1 * WORD_SIZE] ;;; old rbp ApplicTP'\n" in
+	let frame = "\tpush qword [rbp]\n\tSHIFT_FRAME " ^ (string_of_int (5 + (List.length rands))) ^ "\n\tpop rbp\n" in
+	let sof = "\tCLOSURE_CODE rax, rax\n\tjmp rax" in
+	sub_routine "\n\n" (pushti_rands ^ rator_to_asm ^ old_rbp ^ frame ^ sof)
+
+and app_to_asm fvars consts rator rands sub_routine env_deepnace parent_params=
+	let rands_count = string_of_int (List.length rands) in
+	let pushti = String.concat "\tpush rax ;;; push arg applic\n\n" 
+								(List.fold_right (fun e acc -> acc @ 
+									[(genrate_asm "\n" not_subroutine consts fvars e env_deepnace parent_params)]) rands []) in
+	let push_rands_asm = if (String.equal pushti "") then "\tpush SOB_NIL_ADDRESS\n"
+		else "\tpush SOB_NIL_ADDRESS\n" ^ pushti ^ "\tpush rax ;;; push arg applic\n" in
+	let rator_to_asm = genrate_asm "\n" not_subroutine consts fvars rator env_deepnace parent_params in 
+	let pushti_rands = push_rands_asm ^ "\tpush " ^ rands_count ^ " ;;; args count applic\n" in
+	sub_routine "\n\n" (pushti_rands^rator_to_asm^"\tCLOSURE_ENV rbx, rax\n\tpush rbx\n\tCLOSURE_CODE rbx, rax
+	call rbx\n\n" ^ after_app)
 
 
 and copy_old_envs i env_deepnace acc_str =
@@ -280,20 +312,7 @@ and set_free_to_asm fvars consts n expr sub_routine env_deepnace parent_params=
 	let expr_to_asm = genrate_asm "\n" not_subroutine consts fvars expr env_deepnace parent_params in
 	let addr = get_fvar_address n fvars in 
 	sub_routine "\n" (expr_to_asm ^ "\tmov qword ["^addr^"], rax\n\tmov rax, SOB_VOID_ADDRESS") 
-
- and app_to_asm fvars consts rator rands sub_routine env_deepnace parent_params=
-	let rands_count = string_of_int (List.length rands) in
-	let pushti = String.concat "\tpush rax ;;; push arg applic\n\n" 
-								(List.fold_right (fun e acc -> acc @ 
-									[(genrate_asm "\n" not_subroutine consts fvars e env_deepnace parent_params)]) rands []) in
-	let push_rands_asm = if (String.equal pushti "") then "\tpush SOB_NIL_ADDRESS\n"
-		else "\tpush SOB_NIL_ADDRESS\n" ^ pushti ^ "\tpush rax ;;; push arg applic\n" in
-	let rator_to_asm = genrate_asm "\n" not_subroutine consts fvars rator env_deepnace parent_params in 
-	let pushti_rands = push_rands_asm ^ "\tpush " ^ rands_count ^ " ;;; args count applic\n" in
-	sub_routine "\n\n" (pushti_rands^rator_to_asm^"\tCLOSURE_ENV rbx, rax\n\tpush rbx\n\tCLOSURE_CODE rbx, rax
-	call rbx\n\tadd rsp, 8*("^rands_count^" + 3)")
 	
-
 and or_to_asm fvars consts lst sub_routine env_deepnace parent_params =
 	let to_asm = List.fold_left (fun acc e -> acc @ 
 			[(genrate_asm "" not_subroutine consts fvars e env_deepnace parent_params)]) [] lst in
