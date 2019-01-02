@@ -951,6 +951,7 @@ set_cdr:
 
 apply:
     push rbp
+    mov r9, rbp
 	mov rbp, rsp
 
     push SOB_NIL_ADDRESS
@@ -988,11 +989,13 @@ apply:
     add rcx, 1
     CDR rbx, rbx
     cmp byte [rbx], T_NIL
-    je .continue
+    je .list_loop_continue
     jmp .list_loop
 
-.continue:
+.list_loop_continue:
     sub rsp, rdi
+
+.continue:
     sub rsi, 2
     add rcx, rsi
 
@@ -1011,12 +1014,11 @@ apply:
     CLOSURE_ENV rbx, rax
     push rbx
     push qword [rbp + WORD_SIZE]
-    push qword [rbp]
     CLOSURE_CODE rax, rax
 .shift:
     SHIFT_FRAME2 rcx
 .after_shift:
-    pop rbp
+    mov rbp, r9
     jmp rax
     ; add rsp, WORD_SIZE
 	; pop rbx
