@@ -136,7 +136,8 @@ let rec _make_consts_tbl_ acc indx lst =
 			(_make_consts_tbl_ (acc @ [Sexpr(Number(Float x)), indx, "MAKE_LIT_FLOAT("^ string_of_float x ^")"])
 				 (indx + float_size) tl)
 		| Sexpr(String str) :: tl -> 
-			(_make_consts_tbl_ 
+			if String.equal str "" then (acc @ [Sexpr(String str), indx, "MAKE_LIT_STRING 0, 0"])
+			else (_make_consts_tbl_ 
 				(acc @ [Sexpr(String str), indx, "MAKE_LIT_STRING " ^ string_of_int(String.length str) ^
 				", " ^ (make_comma_str str 0 (String.length str))]) 
 				(indx + (string_size str)) tl)
