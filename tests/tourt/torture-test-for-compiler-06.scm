@@ -3,6 +3,8 @@
 ;;;
 ;;; Programmer: Mayer Goldberg, 2012
 
+(define positive? (lambda (n) (> n 0)))
+
 (define even?
   (letrec ((even-1?
 	    (lambda (n)

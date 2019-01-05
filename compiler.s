@@ -310,6 +310,7 @@ write_sob_char:
 	mov rbp, rsp
 
 	CHAR_VAL sil, rsi
+	and rsi, 255
 
 	cmp sil, CHAR_NUL
 	je .Lnul
