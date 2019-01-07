@@ -28,7 +28,9 @@ let bool_size = byte_size + byte_size;; (* One byte for tag, and one for value *
 let char_size = byte_size + byte_size;; (* One byte for tag, and one for value *)
 let int_size = byte_size + qw_size;; (* One byte for tag and 8 bytes for value *)
 let float_size = byte_size + qw_size;; (* One byte for tag and 8 bytes for value *)
-let string_size str = byte_size + qw_size + (String.length str);; (* Tag, Length, and chars seq *)
+let string_size str = 
+	if String.equal "" str then 10
+	else byte_size + qw_size + (String.length str);; (* Tag, Length, and chars seq *)
 let symbol_size = byte_size + qw_size;; (* One byte for tag and 8 bytes for string ptr *)
 let pair_size = byte_size + (qw_size * 2);; (* One byte for tag and 16 bytes for ptrs *)
 let vec_size vec = byte_size + qw_size + ((List.length vec) * qw_size);;
@@ -136,7 +138,9 @@ let rec _make_consts_tbl_ acc indx lst =
 			(_make_consts_tbl_ (acc @ [Sexpr(Number(Float x)), indx, "MAKE_LIT_FLOAT("^ string_of_float x ^")"])
 				 (indx + float_size) tl)
 		| Sexpr(String str) :: tl -> 
-			if String.equal str "" then (acc @ [Sexpr(String str), indx, "MAKE_LIT_STRING 0, 0"])
+			if String.equal str "" 
+			then (_make_consts_tbl_ 
+			(acc @ [Sexpr(String str), indx, "MAKE_LIT_STRING 0,0"]) (indx + (string_size str)) tl) 
 			else (_make_consts_tbl_ 
 				(acc @ [Sexpr(String str), indx, "MAKE_LIT_STRING " ^ string_of_int(String.length str) ^
 				", " ^ (make_comma_str str 0 (String.length str))]) 
@@ -165,7 +169,7 @@ and filter_consts lst sexpr =
 
 let rec genrate_asm del sub_routine consts fvars e env_deepnace parent_params= 
 		match e with
-			| Const'(c) -> 
+			| Const'(c) ->
 				sub_routine del ("\tmov rax, " ^ get_const_address c consts ^ "\t;;;Const by genrate")
 			| Var'(VarFree(n)) -> 
 				sub_routine del ("\tmov rax, qword [" ^ (get_fvar_address n fvars) ^ "] ;;; fvar " ^ n)
